@@ -44,8 +44,10 @@ export interface SMSResponse {
 }
 
 export interface FollowUpResponse {
-  response: string;
-  sources: SourceGroundingItem[];
+  answer: string;
+  related_values: string[];
+  should_ask_doctor: boolean;
+  confidence: string;
 }
 
 export interface SchemeMatchResponse {
@@ -159,22 +161,37 @@ class ApiClient {
     });
   }
 
-  async getDocumentStatus(documentId: string): Promise<DocumentStatus> {
-    return this.request<DocumentStatus>(`/documents/${documentId}/status`);
+  async getDocumentStatus(sessionId: string): Promise<DocumentStatus> {
+    return this.request<DocumentStatus>(`/documents/status/${sessionId}`);
   }
 
   async getAnalysis(documentId: string, language: Language = 'en'): Promise<AnalysisResponse> {
     return this.request<AnalysisResponse>(`/analysis/${documentId}?language=${language}`);
   }
 
-  async askFollowUp(
+  async analyzeDocument(
+    sessionId: string,
     documentId: string,
+    language: Language = 'en'
+  ): Promise<AnalysisResponse> {
+    return this.request<AnalysisResponse>('/analysis/explain', {
+      method: 'POST',
+      body: JSON.stringify({
+        session_id: sessionId,
+        document_id: documentId,
+        language,
+      }),
+    });
+  }
+
+  async askFollowUp(
+    sessionId: string,
     question: string,
     language: Language = 'en'
   ): Promise<FollowUpResponse> {
-    return this.request<FollowUpResponse>('/analysis/follow-up', {
+    return this.request<FollowUpResponse>('/analysis/followup', {
       method: 'POST',
-      body: JSON.stringify({ documentId, question, language }),
+      body: JSON.stringify({ session_id: sessionId, question, language }),
     });
   }
 
@@ -192,11 +209,44 @@ class ApiClient {
     );
   }
 
+  async matchSchemes(
+    state: string,
+    incomeRange: string,
+    age: number,
+    isBpl: boolean,
+    conditions: string[] | undefined,
+    sessionId: string | undefined,
+    language: Language
+  ): Promise<SchemeMatchResponse> {
+    return this.request<SchemeMatchResponse>('/schemes/match', {
+      method: 'POST',
+      body: JSON.stringify({
+        state,
+        income_range: incomeRange,
+        age,
+        is_bpl: isBpl,
+        conditions,
+        session_id: sessionId,
+        language,
+      }),
+    });
+  }
+
   async getTextToSpeech(
     text: string,
     language: Language = 'en'
   ): Promise<{ audioUrl: string }> {
     return this.request<{ audioUrl: string }>('/audio/tts', {
+      method: 'POST',
+      body: JSON.stringify({ text, language }),
+    });
+  }
+
+  async synthesizeSpeech(
+    text: string,
+    language: Language = 'en'
+  ): Promise<{ audio_url: string }> {
+    return this.request<{ audio_url: string }>('/audio/synthesize', {
       method: 'POST',
       body: JSON.stringify({ text, language }),
     });
