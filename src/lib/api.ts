@@ -3,37 +3,57 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api/
 export type Language = 'en' | 'hi' | 'kn' | 'ta' | 'te' | 'ml' | 'bn' | 'gu' | 'mr' | 'pa';
 
 export interface KeyFinding {
-  parameter: string;
+  test_name: string;
   value: string;
   unit?: string;
-  referenceRange?: string;
-  status: 'normal' | 'abnormal' | 'critical';
-  description: string;
+  normal_range?: string;
+  status: 'normal' | 'high' | 'low' | 'critical';
+  explanation?: string;
+  source?: string;
 }
 
 export interface AbnormalValue {
-  parameter: string;
+  test_name: string;
   value: string;
-  expectedRange: string;
-  severity: 'high' | 'low' | 'critical';
+  normal_range: string;
+  severity: 'mild' | 'moderate' | 'severe';
+  explanation?: string;
 }
 
 export interface SourceGroundingItem {
-  source: string;
-  text: string;
-  score: number;
+  test_name: string;
+  extracted_value: string;
+  reference_range: string;
+  status: 'normal' | 'high' | 'low' | 'critical';
+}
+
+export interface EmergencyAlert {
+  test_name: string;
+  value: string;
+  unit: string;
+  direction: 'critically_high' | 'critically_low';
+  message: string;
+  action: string;
 }
 
 export interface EmergencyInfo {
-  detected: boolean;
-  severity: 'none' | 'low' | 'medium' | 'high' | 'critical';
-  message: string;
-  recommendations: string[];
-  contacts?: {
-    type: string;
-    number: string;
-    label: string;
-  }[];
+  has_emergency: boolean;
+  alert_count: number;
+  alerts: EmergencyAlert[];
+  emergency_resources: Record<string, string>;
+  disclaimer: string;
+}
+
+export interface ConfidenceBreakdown {
+  ocr_confidence: number;
+  extraction_completeness: number;
+  abnormal_value_certainty: number;
+  llm_self_evaluation: number;
+}
+
+export interface DocumentQuality {
+  is_acceptable: boolean;
+  issues: string[];
 }
 
 export interface SMSResponse {
@@ -50,43 +70,73 @@ export interface FollowUpResponse {
   confidence: string;
 }
 
+export interface SchemeMatchFactor {
+  factor: string;
+  matched: boolean;
+  detail: string;
+}
+
+export interface Scheme {
+  id: string;
+  name: string;
+  type: string;
+  state: string;
+  coverage: string;
+  relevance_score: number;
+  match_reason?: string;
+  match_factors?: SchemeMatchFactor[];
+  conditions_covered?: string[];
+  action_steps?: string[];
+  documents_required: string[];
+  apply_link?: string;
+  helpline?: string;
+}
+
 export interface SchemeMatchResponse {
-  schemes: {
-    name: string;
-    description: string;
-    eligibility: string;
-    benefits: string[];
-    website?: string;
-    matchScore: number;
-  }[];
+  schemes: Scheme[];
+  count: number;
+  summary?: string;
+  rag_used?: boolean;
 }
 
 export interface DocumentUploadResponse {
-  documentId: string;
+  session_id: string;
+  document_id: string;
   filename: string;
   status: 'uploaded' | 'processing' | 'completed' | 'failed';
-  uploadTime: string;
+  upload_time: string;
   message?: string;
 }
 
 export interface DocumentStatus {
-  documentId: string;
-  status: 'processing' | 'completed' | 'failed';
-  progress: number;
+  session_id?: string;
+  document_id: string;
+  status: 'pending' | 'uploading' | 'preprocessing' | 'extracting' | 'analyzing' | 'processing' | 'completed' | 'failed';
+  ocr_confidence?: number;
+  engine_used?: string;
+  fallback_used?: boolean;
+  status_message?: string;
+  quality?: DocumentQuality;
+  progress?: number;
   message?: string;
   result?: AnalysisResponse;
 }
 
 export interface AnalysisResponse {
   summary: string;
-  keyFindings: KeyFinding[];
-  detailedExplanation: string;
-  emergencyInfo: EmergencyInfo;
-  abnormalValues: AbnormalValue[];
+  key_findings: KeyFinding[];
+  things_to_note: string[];
+  questions_for_doctor: string[];
+  emergency: EmergencyInfo;
+  abnormal_values: AbnormalValue[];
   language: Language;
+  confidence: number;
+  confidence_breakdown?: ConfidenceBreakdown;
+  confidence_notes?: string;
+  processing_time_ms: number;
+  model: string;
   schemes?: SchemeMatchResponse;
-  followUpEnabled: boolean;
-  groundingSources?: SourceGroundingItem[];
+  source_grounding: SourceGroundingItem[];
   ttsAudioUrl?: string;
   explanationAudioUrl?: string;
 }
@@ -259,6 +309,23 @@ class ApiClient {
     return this.request<SMSResponse>('/notifications/sms', {
       method: 'POST',
       body: JSON.stringify({ phoneNumber, emergencyInfo }),
+    });
+  }
+
+  async sendSMSSummary(
+    sessionId: string,
+    phoneNumber: string,
+    includeSchemes: boolean = false,
+    language: Language = 'en'
+  ): Promise<SMSResponse> {
+    return this.request<SMSResponse>('/notifications/sms-summary', {
+      method: 'POST',
+      body: JSON.stringify({
+        session_id: sessionId,
+        phone_number: phoneNumber,
+        include_schemes: includeSchemes,
+        language,
+      }),
     });
   }
 
