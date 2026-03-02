@@ -1,9 +1,3 @@
-"""
-SMS Notification Service via AWS SNS.
-Sends medical report summaries and government scheme info to patient's phone.
-Cost: ~₹0.80 per SMS in India (~$0.01 USD).
-"""
-
 import logging
 from typing import Optional, Dict, Any
 

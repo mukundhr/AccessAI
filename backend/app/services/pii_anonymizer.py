@@ -1,34 +1,3 @@
-"""
-PII Anonymisation Service – Production-Grade, India-Centric.
-
-AWS Comprehend is US-centric and misses India-specific identifiers such as
-Aadhaar, PAN, Voter-ID (EPIC), Driving Licence, UPI, IFSC, ABHA, and
-typical Indian phone / address formats.  This module provides a **layered**
-detection strategy:
-
-    1. **Regex engine** – 30+ hand-tuned patterns for Indian PII, each with
-       structural validation (e.g. Verhoeff checksum for Aadhaar, PAN
-       format grammar, Luhn for credit cards).
-    2. **AWS Comprehend** (optional) – called as a supplementary detector;
-       results are merged with regex hits, with higher-confidence spans
-       winning on overlap.
-    3. **Context-aware filtering** – medical-context exclusion lists suppress
-       false positives on lab values, reference ranges, and report metadata.
-
-Enterprise guarantees:
-  * Original PII values **never** leave the backend.
-  * Only anonymised text is sent to any LLM / embedding model.
-  * The PII mapping lives only in the in-memory session store and is
-    automatically purged when the session expires.
-  * Structured audit logging for every anonymisation event.
-  * Thread-safe: can be shared across async request handlers.
-
-Configurable via environment:
-  * ``PII_MIN_CONFIDENCE`` – global minimum confidence (default 0.55).
-  * ``PII_REDACT_STRATEGY`` – "placeholder" | "mask" | "hash" (default "placeholder").
-  * ``PII_AUDIT_LOG`` – enable/disable audit trail (default True in prod).
-"""
-
 from __future__ import annotations
 
 import hashlib
@@ -43,11 +12,6 @@ from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple
 
 logger = logging.getLogger(__name__)
 
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  Constants & configuration
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
 # Comprehend max payload (UTF-8 bytes)
 _COMPREHEND_MAX_BYTES = 99_000
 
@@ -61,11 +25,6 @@ class RedactStrategy(str, Enum):
     PLACEHOLDER = "placeholder"   # [NAME_1]
     MASK = "mask"                 # ****
     HASH = "hash"                 # [SHA256:ab12…]
-
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  Verhoeff checksum (Aadhaar validation)
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 _VERHOEFF_D = [
     [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
@@ -115,10 +74,6 @@ def _luhn_checksum(number: str) -> bool:
         total += sum(divmod(d * 2, 10))
     return total % 10 == 0
 
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  Data structures
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @dataclass
 class PIIEntity:

@@ -1,360 +1,220 @@
-/**
- * AccessAI API Client
- * Connects the frontend to the backend API with full type safety.
- */
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api/v1';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
-
-// ==================== Types ====================
-
-export type ProcessingStatus =
-  | 'pending'
-  | 'uploading'
-  | 'preprocessing'
-  | 'extracting'
-  | 'analyzing'
-  | 'processing'
-  | 'completed'
-  | 'failed';
-
-export type Language = 'en' | 'hi' | 'kn';
-
-export interface DocumentUploadResponse {
-  session_id: string;
-  document_id: string;
-  file_name: string;
-  file_size: number;
-  status: ProcessingStatus;
-  message: string;
-}
-
-export interface QualityInfo {
-  blur_score: number;
-  contrast_score: number;
-  quality_rating: 'good' | 'fair' | 'poor';
-  issues: string[];
-  is_acceptable: boolean;
-}
-
-export interface DocumentStatus {
-  session_id: string;
-  document_id: string;
-  status: ProcessingStatus;
-  status_message: string;
-  file_name: string;
-  ocr_confidence?: number;
-  quality?: QualityInfo;
-  engine_used?: string;
-  fallback_used: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface DocumentResult {
-  session_id: string;
-  document_id: string;
-  text: string;
-  confidence: number;
-  blocks_count: number;
-  tables: string[][][];
-  key_value_pairs: { key: string; value: string }[];
-  engine: string;
-  fallback_used: boolean;
-  quality?: QualityInfo;
-}
+export type Language = 'en' | 'hi' | 'kn' | 'ta' | 'te' | 'ml' | 'bn' | 'gu' | 'mr' | 'pa';
 
 export interface KeyFinding {
-  test_name: string;
+  parameter: string;
   value: string;
-  normal_range: string;
-  status: 'normal' | 'high' | 'low' | 'critical';
-  explanation: string;
-  source: string;
+  unit?: string;
+  referenceRange?: string;
+  status: 'normal' | 'abnormal' | 'critical';
+  description: string;
 }
 
 export interface AbnormalValue {
-  test_name: string;
+  parameter: string;
   value: string;
-  normal_range: string;
-  severity: 'mild' | 'moderate' | 'severe';
-  explanation: string;
+  expectedRange: string;
+  severity: 'high' | 'low' | 'critical';
 }
 
 export interface SourceGroundingItem {
-  test_name: string;
-  extracted_value: number;
-  reference_range: string;
-  status: 'normal' | 'high' | 'low';
-}
-
-export interface EmergencyAlert {
-  test_name: string;
-  value: number;
-  unit: string;
-  threshold: string;
-  direction: 'critically_low' | 'critically_high';
-  severity: 'critical' | 'urgent';
-  message: string;
-  action: string;
+  source: string;
+  text: string;
+  score: number;
 }
 
 export interface EmergencyInfo {
-  has_emergency: boolean;
-  alert_count: number;
-  alerts: EmergencyAlert[];
-  emergency_resources: Record<string, string>;
-  disclaimer: string;
-}
-
-export interface ConfidenceBreakdown {
-  ocr_confidence: number;
-  extraction_completeness: number;
-  abnormal_value_certainty: number;
-  llm_self_evaluation: number;
-}
-
-export interface AnalysisResponse {
-  session_id: string;
-  document_id: string;
-  summary: string;
-  key_findings: KeyFinding[];
-  abnormal_values: AbnormalValue[];
-  things_to_note: string[];
-  questions_for_doctor: string[];
-  confidence: number;
-  confidence_notes: string;
-  confidence_breakdown?: ConfidenceBreakdown;
-  ocr_confidence: number;
-  source_grounding: SourceGroundingItem[];
-  emergency?: EmergencyInfo;
-  language: Language;
-  model: string;
-  processing_time_ms: number;
+  detected: boolean;
+  severity: 'none' | 'low' | 'medium' | 'high' | 'critical';
+  message: string;
+  recommendations: string[];
+  contacts?: {
+    type: string;
+    number: string;
+    label: string;
+  }[];
 }
 
 export interface SMSResponse {
   success: boolean;
-  message_id?: string;
   message: string;
+  sid?: string;
+  error?: string;
 }
 
 export interface FollowUpResponse {
-  answer: string;
-  related_values: string[];
-  should_ask_doctor: boolean;
-  confidence: 'high' | 'medium' | 'low';
-}
-
-export interface MatchFactor {
-  factor: string;
-  matched: boolean;
-  detail: string;
-}
-
-export interface SchemeInfo {
-  id: string;
-  name: string;
-  type: string;
-  coverage: string;
-  eligibility: string[];
-  documents_required: string[];
-  benefits: string[];
-  state: string;
-  match_reason: string;
-  match_factors: MatchFactor[];
-  apply_link?: string;
-  helpline: string;
-  relevance_score: number;
-  action_steps: string[];
-  conditions_covered: string[];
+  response: string;
+  sources: SourceGroundingItem[];
 }
 
 export interface SchemeMatchResponse {
-  schemes: SchemeInfo[];
-  count: number;
+  schemes: {
+    name: string;
+    description: string;
+    eligibility: string;
+    benefits: string[];
+    website?: string;
+    matchScore: number;
+  }[];
+}
+
+export interface DocumentUploadResponse {
+  documentId: string;
+  filename: string;
+  status: 'uploaded' | 'processing' | 'completed' | 'failed';
+  uploadTime: string;
+  message?: string;
+}
+
+export interface DocumentStatus {
+  documentId: string;
+  status: 'processing' | 'completed' | 'failed';
+  progress: number;
+  message?: string;
+  result?: AnalysisResponse;
+}
+
+export interface AnalysisResponse {
   summary: string;
-  rag_used: boolean;
-}
-
-export interface AudioResponse {
-  audio_url: string;
-  audio_key: string;
-  voice_id: string;
+  keyFindings: KeyFinding[];
+  detailedExplanation: string;
+  emergencyInfo: EmergencyInfo;
+  abnormalValues: AbnormalValue[];
   language: Language;
-  duration_estimate_seconds?: number;
-  expires_at: string;
+  schemes?: SchemeMatchResponse;
+  followUpEnabled: boolean;
+  groundingSources?: SourceGroundingItem[];
+  ttsAudioUrl?: string;
+  explanationAudioUrl?: string;
 }
 
-// ==================== API Client ====================
-
-class AccessAIApiClient {
+class ApiClient {
   private baseUrl: string;
 
   constructor(baseUrl: string = API_BASE_URL) {
     this.baseUrl = baseUrl;
   }
 
-  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  private async request<T>(
+    endpoint: string,
+    options: RequestInit = {}
+  ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
-
-    const response = await fetch(url, {
+    
+    const config: RequestInit = {
       ...options,
       headers: {
-        'Content-Type': 'application/json',
+        'Accept': 'application/json',
         ...options.headers,
       },
-    });
+    };
 
+    if (options.body && !(options.body instanceof FormData)) {
+      (config.headers as Record<string, string>)['Content-Type'] = 'application/json';
+    }
+
+    const response = await fetch(url, config);
+    
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
-      throw new Error(error.detail || `HTTP ${response.status}`);
+      const error = await response.json().catch(() => ({ detail: 'An error occurred' }));
+      throw new Error(error.detail || `HTTP error! status: ${response.status}`);
     }
 
     return response.json();
   }
 
-  // Document endpoints
-  async uploadDocument(file: File): Promise<DocumentUploadResponse> {
+  async uploadDocument(
+    file: File,
+    language: Language = 'en',
+    onProgress?: (progress: number) => void
+  ): Promise<DocumentUploadResponse> {
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('language', language);
 
-    const response = await fetch(`${this.baseUrl}/documents/upload`, {
-      method: 'POST',
-      body: formData,
-    });
+    const xhr = new XMLHttpRequest();
+    
+    return new Promise((resolve, reject) => {
+      xhr.open('POST', `${this.baseUrl}/documents/upload`);
+      
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable && onProgress) {
+          const progress = Math.round((event.loaded / event.total) * 100);
+          onProgress(progress);
+        }
+      };
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Upload failed' }));
-      throw new Error(error.detail);
-    }
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(JSON.parse(xhr.responseText));
+        } else {
+          reject(new Error(`Upload failed with status ${xhr.status}`));
+        }
+      };
 
-    return response.json();
-  }
-
-  async getDocumentStatus(sessionId: string): Promise<DocumentStatus> {
-    return this.request<DocumentStatus>(`/documents/status/${sessionId}`);
-  }
-
-  async getDocumentResult(sessionId: string): Promise<DocumentResult> {
-    return this.request<DocumentResult>(`/documents/result/${sessionId}`);
-  }
-
-  async deleteDocument(sessionId: string): Promise<void> {
-    await this.request(`/documents/${sessionId}`, { method: 'DELETE' });
-  }
-
-  // Analysis endpoints
-  async analyzeDocument(
-    sessionId: string,
-    documentId: string,
-    language: Language = 'en'
-  ): Promise<AnalysisResponse> {
-    return this.request<AnalysisResponse>('/analysis/explain', {
-      method: 'POST',
-      body: JSON.stringify({
-        session_id: sessionId,
-        document_id: documentId,
-        language,
-      }),
+      xhr.onerror = () => reject(new Error('Upload failed'));
+      
+      xhr.send(formData);
     });
   }
 
-  async getAnalysisResult(sessionId: string): Promise<AnalysisResponse> {
-    return this.request<AnalysisResponse>(`/analysis/result/${sessionId}`);
+  async getDocumentStatus(documentId: string): Promise<DocumentStatus> {
+    return this.request<DocumentStatus>(`/documents/${documentId}/status`);
+  }
+
+  async getAnalysis(documentId: string, language: Language = 'en'): Promise<AnalysisResponse> {
+    return this.request<AnalysisResponse>(`/analysis/${documentId}?language=${language}`);
   }
 
   async askFollowUp(
-    sessionId: string,
+    documentId: string,
     question: string,
     language: Language = 'en'
   ): Promise<FollowUpResponse> {
-    return this.request<FollowUpResponse>('/analysis/followup', {
+    return this.request<FollowUpResponse>('/analysis/follow-up', {
       method: 'POST',
-      body: JSON.stringify({
-        session_id: sessionId,
-        question,
-        language,
-      }),
+      body: JSON.stringify({ documentId, question, language }),
     });
   }
 
-  // Scheme endpoints
-  async matchSchemes(
-    state: string,
-    incomeRange: string,
-    age: number,
-    isBpl: boolean,
-    conditions?: string[],
-    sessionId?: string,
-    language?: Language
-  ): Promise<SchemeMatchResponse> {
-    return this.request<SchemeMatchResponse>('/schemes/match', {
-      method: 'POST',
-      body: JSON.stringify({
-        state,
-        income_range: incomeRange,
-        age,
-        is_bpl: isBpl,
-        conditions,
-        session_id: sessionId,
-        language: language || 'english',
-      }),
-    });
-  }
-
-  async searchSchemes(
+  async getSchemeMatches(
+    documentId: string,
     state?: string,
-    query?: string,
-    schemeType?: string
-  ): Promise<{ schemes: SchemeInfo[]; count: number }> {
+    category?: string
+  ): Promise<SchemeMatchResponse> {
     const params = new URLSearchParams();
     if (state) params.append('state', state);
-    if (query) params.append('query', query);
-    if (schemeType) params.append('scheme_type', schemeType);
-    return this.request(`/schemes/search?${params.toString()}`);
+    if (category) params.append('category', category);
+    
+    return this.request<SchemeMatchResponse>(
+      `/schemes/match/${documentId}?${params.toString()}`
+    );
   }
 
-  async getSchemeDetails(schemeId: string): Promise<SchemeInfo> {
-    return this.request<SchemeInfo>(`/schemes/${schemeId}`);
-  }
-
-  // Audio endpoints
-  async synthesizeSpeech(text: string, language: Language = 'hi'): Promise<AudioResponse> {
-    return this.request<AudioResponse>('/audio/synthesize', {
+  async getTextToSpeech(
+    text: string,
+    language: Language = 'en'
+  ): Promise<{ audioUrl: string }> {
+    return this.request<{ audioUrl: string }>('/audio/tts', {
       method: 'POST',
       body: JSON.stringify({ text, language }),
     });
   }
 
-  async synthesizeExplanation(
-    explanation: string,
-    language: Language = 'hi'
-  ): Promise<{ audio_url: string; voice_id: string; language: string; expires_at: string }> {
-    return this.request('/audio/synthesize-explanation', {
+  async sendEmergencySMS(
+    phoneNumber: string,
+    emergencyInfo: EmergencyInfo
+  ): Promise<SMSResponse> {
+    return this.request<SMSResponse>('/notifications/sms', {
       method: 'POST',
-      body: JSON.stringify({ explanation, language }),
+      body: JSON.stringify({ phoneNumber, emergencyInfo }),
     });
   }
 
-  // SMS endpoints
-  async sendSMSSummary(
-    sessionId: string,
-    phoneNumber: string,
-    includeSchemes: boolean = false,
-    language: Language = 'en'
-  ): Promise<SMSResponse> {
-    return this.request<SMSResponse>('/notifications/send-summary', {
-      method: 'POST',
-      body: JSON.stringify({
-        session_id: sessionId,
-        phone_number: phoneNumber,
-        include_schemes: includeSchemes,
-        language,
-      }),
-    });
+  async checkHealth(): Promise<{ status: string; environment: string }> {
+    return this.request<{ status: string; environment: string }>('/health');
   }
 }
 
-// Export singleton
-export const apiClient = new AccessAIApiClient();
-export { AccessAIApiClient };
+export const apiClient = new ApiClient();

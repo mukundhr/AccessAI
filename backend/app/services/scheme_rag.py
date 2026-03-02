@@ -1,17 +1,3 @@
-"""
-RAG-based Government Health Scheme Retrieval Service.
-
-Uses **Amazon Bedrock Titan Embeddings** for semantic retrieval and
-**Bedrock Claude** for generation of personalised scheme recommendations.
-
-Pipeline:
-  1. Offline: load schemes.json → embed each scheme via Titan → cache vectors
-  2. Online:  embed user query via Titan
-            → cosine similarity against cached scheme embeddings
-            → post-retrieval hard filters
-            → generate a personalised summary with Bedrock Claude
-"""
-
 import hashlib
 import json
 import logging

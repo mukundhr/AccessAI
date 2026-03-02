@@ -1,8 +1,3 @@
-"""
-Session management with in-memory store and caching.
-Shared across endpoints to maintain session state.
-"""
-
 import logging
 import time
 import hashlib

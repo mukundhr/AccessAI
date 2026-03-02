@@ -1,9 +1,3 @@
-"""
-OCR Service with Textract primary and Tesseract fallback.
-Includes image preprocessing for improved accuracy.
-Supports multi-page PDFs via Textract async (StartDocumentAnalysis).
-"""
-
 import asyncio
 import io
 import logging

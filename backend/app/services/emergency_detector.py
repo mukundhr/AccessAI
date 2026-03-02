@@ -1,9 +1,3 @@
-"""
-Emergency Detection Service.
-Identifies critically dangerous lab values that require immediate medical attention.
-Uses panic value ranges defined by clinical laboratory standards (AACC/CAP).
-"""
-
 import logging
 import re
 from typing import Dict, Any, List, Optional
@@ -12,12 +6,6 @@ logger = logging.getLogger(__name__)
 
 
 class EmergencyDetector:
-    """
-    Detects critical (panic) lab values that may require 
-    emergency medical attention. This is NOT a diagnostic tool — 
-    it flags values that universally warrant urgent clinical review.
-    """
-
     # Critical/Panic value ranges (source: AACC Clinical Lab Panic Values)
     # Format: test_name -> { low_critical, high_critical, unit, message }
     PANIC_VALUES = {

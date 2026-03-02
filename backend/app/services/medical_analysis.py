@@ -1,9 +1,3 @@
-"""
-Medical Analysis Service.
-Generates structured medical summaries with sections,
-key findings, abnormal values, things to note, and doctor questions.
-"""
-
 import json
 import logging
 import re
