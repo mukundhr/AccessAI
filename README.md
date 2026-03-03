@@ -294,7 +294,7 @@ Each key finding in the UI carries a **"✓ Verified"** or **"⚠ Unverified"** 
 ### 1. Clone
 
 ```bash
-git clone https://github.com/your-username/accessai.git
+git clone https://github.com/mukundhr/AccessAI.git
 cd accessai
 ```
 
