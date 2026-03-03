@@ -1,37 +1,37 @@
 <div align="center">
 
-# AccessAI
+<h1>AccessAI</h1>
 
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
-[![AWS](https://img.shields.io/badge/AWS-Bedrock%20%7C%20Polly%20%7C%20Textract%20%7C%20Translate-FF9900?style=for-the-badge&logo=amazonaws&logoColor=white)](https://aws.amazon.com)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5%2B-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
-[![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
+<sup>
+<a href="https://fastapi.tiangolo.com"><img src="https://img.shields.io/badge/FastAPI-0.115-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI"></a>
+<a href="https://react.dev"><img src="https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React"></a>
+<a href="https://aws.amazon.com"><img src="https://img.shields.io/badge/AWS-Bedrock%20%7C%20Polly%20%7C%20Textract-FF9900?style=flat-square&logo=amazonaws&logoColor=white" alt="AWS"></a>
+<a href="https://www.typescriptlang.org"><img src="https://img.shields.io/badge/TypeScript-5%2B-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript"></a>
+<a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License"></a>
+</sup>
 
-**A low-bandwidth, multilingual, voice-first system that helps underserved communities understand medical information and navigate public healthcare schemes.**
+<p><sub><strong>A low-bandwidth, multilingual, voice-first system that helps underserved communities understand medical information and navigate public healthcare schemes.</strong></sub></p>
 
-> AccessAI is not a diagnostic system. It is an information and navigation layer.
+<p><sub><em>AccessAI is not a diagnostic system. It is an information and navigation layer.</em></sub></p>
 
 </div>
 
 ---
 
-## The Problem
+## Problem
 
-Millions of people in rural and semi-urban settings receive medical reports they cannot understand, in a healthcare landscape that is hard to navigate without help.
+Millions in rural and semi-urban settings receive medical reports they cannot understand, in a healthcare landscape that is hard to navigate.
 
 | Challenge | Impact |
-|-----------|--------|
-| **Unexplained medical terms** | Reports use clinical shorthand (e.g., Hb 8.2, MCV low) with no plain-language context |
-| **Lost-in-translation** | Existing translation tools convert words, not meaning |
-| **Limited doctor access** | Consultations carry long wait times and out-of-pocket costs |
-| **Fragmented policy information** | Government healthcare schemes are buried across large, poorly structured PDF portals |
-
-The result: patients delay treatment not because care is unavailable, but because they cannot understand what they need or where to go.
+|:----------|:-------|
+| Unexplained medical terms | Reports use clinical shorthand (e.g., Hb 8.2, MCV low) with no plain-language context |
+| Lost-in-translation | Existing tools convert words, not meaning |
+| Limited doctor access | Consultations carry long wait times and out-of-pocket costs |
+| Fragmented policy information | Government healthcare schemes are buried across large, poorly structured PDF portals |
 
 ---
 
-## What AccessAI Does
+## Solution
 
 AccessAI sits between the patient and the healthcare system. It takes a medical report, and returns a simple, voice-based explanation in Hindi — along with matched government schemes and clear next steps.
 
@@ -40,9 +40,9 @@ User uploads medical report (PDF / image)
         ↓
 OCR extracts text (Amazon Textract)
         ↓
-PII is stripped before AI processing (Comprehend + regex)
+PII is stripped before AI processing
         ↓
-S3 document auto-deleted (healthcare privacy)
+S3 document auto-deleted
         ↓
 Clinical Reasoning Engine — deterministic rule-based inference
   • 16 cross-test correlation rules
@@ -68,7 +68,7 @@ Hindi audio explanation delivered (Translate + Polly)
 ### Design Principles
 
 | Principle | Description |
-|-----------|-------------|
+|:----------|:------------|
 | **Voice-first** | Designed for low-literacy and accessibility-constrained users |
 | **Low-bandwidth** | Optimized for unstable or limited connectivity (PWA-ready) |
 | **Privacy-aware** | PII anonymized before LLM; documents auto-deleted from S3 after OCR |
@@ -79,6 +79,12 @@ Hindi audio explanation delivered (Translate + Polly)
 
 ## User Journey
 
+1. **Upload** — Select language, upload medical report (PDF, JPG, PNG, up to 10 MB)
+2. **Processing** — Upload to S3, Textract OCR, auto-delete S3 file, PII anonymization
+3. **Analysis** — Plain-language summary with key findings, abnormal values, questions to ask doctor
+4. **Audio** — Hindi translation via Amazon Translate, spoken via Amazon Polly (Kajal)
+5. **Schemes** — Enter profile info (state, income, age, BPL status), RAG matches eligible schemes
+6. **Follow-up** — Chat interface for questions about the report
 **Step 1 — Upload**
 The user selects their preferred language (English / Hindi / Kannada), then uploads a medical report (PDF, JPG, or PNG, up to 10 MB).
 
@@ -137,36 +143,45 @@ A chat interface lets the user ask follow-up questions about their report. Respo
 
 ---
 
-## Technology Stack
+## Stack
 
 ### Frontend
 
 | Component | Technology |
-|-----------|------------|
+|:----------|:-----------|
 | Framework | React 18 + Vite |
 | Language | TypeScript 5+ |
 | Routing | React Router DOM |
 | Styling | Tailwind CSS |
-| UI Components | Radix UI primitives + shadcn/ui |
+| UI Components | Radix UI + shadcn/ui |
 | Animations | Framer Motion |
-| i18n | Custom hook (English, Hindi, Kannada) |
+| i18n | English, Hindi, Kannada |
 | PWA | Service worker + manifest |
 
 ### Backend
 
 | Component | Technology |
-|-----------|------------|
+|:----------|:-----------|
 | API Framework | FastAPI 0.115 |
 | Server | Uvicorn (ASGI) |
 | AWS SDK | boto3 1.35 |
-| Data Validation | Pydantic v2 + pydantic-settings |
+| Data Validation | Pydantic v2 |
 | Image Processing | Pillow, NumPy, SciPy |
-| OCR Fallback | Tesseract (pytesseract) |
-| Testing | pytest + pytest-asyncio + httpx |
+| OCR Fallback | Tesseract |
+| Testing | pytest + httpx |
 
-### AWS Services (All Serverless)
+### AWS Services
 
 | Service | Purpose |
+|:--------|:--------|
+| Amazon Bedrock | LLM analysis & chat (Kimi K2.5) |
+| Amazon Textract | OCR — text, tables, key-value extraction |
+| Amazon Polly | Neural TTS (Kajal voice, Hindi) |
+| Amazon Translate | English→Hindi translation |
+| Amazon Comprehend | PII entity detection |
+| Amazon S3 | Ephemeral document storage |
+| Amazon SNS | SMS summary delivery |
+| Titan Embeddings | Semantic vector search for RAG |
 |---------|---------|
 | **Amazon Bedrock** | LLM analysis & follow-up chat (Claude Haiku 4.5 via Converse API) |
 | **Amazon Bedrock Titan Embeddings** | Semantic vector search for scheme RAG |
@@ -179,9 +194,12 @@ A chat interface lets the user ask follow-up questions about their report. Respo
 
 ---
 
-## Key Features
+## Features
 
 ### Medical Document Understanding
+- PDFs and images (JPG, PNG, TIFF) up to 10 MB
+- Async Textract for multi-page PDFs; sync for images
+- Quality scoring and fallback OCR for low-quality scans
 - Supports PDFs and images (JPG, PNG, TIFF)
 - Async Textract for multi-page PDFs; sync for single images
 - Handles low-quality scans with quality scoring and fallback OCR
@@ -207,16 +225,23 @@ A 5-layer verification system that runs *after* the LLM responds, catching fabri
 Each key finding in the UI carries a **"✓ Verified"** or **"⚠ Unverified"** badge. An aggregate Hallucination Guard panel shows verified/flagged/removed counts and fabrication risk.
 
 ### Transparent AI Confidence Scoring
+- Weighted 4-signal formula: OCR readability (30%), extraction completeness (25%), abnormal-value certainty (25%), LLM self-evaluation (20%)
+- Full breakdown visible in UI for audit
 - Weighted 4-signal formula (not arbitrary): OCR readability (30%), extraction completeness (25%), abnormal-value certainty (25%), LLM self-evaluation (20%)
 - Full breakdown visible in the UI so users and reviewers can audit the score
 - Confidence is penalised (up to 25 points) proportional to the hallucination guard's fabrication risk
 
 ### Source-Grounded Findings
+- Each finding cites where in the report the value was extracted
+- Local pattern-matching cross-checks LLM output against reference ranges
 - Each key finding cites *where* in the report the value was extracted (e.g., "CBC table row 3")
 - Local pattern-matching cross-checks LLM output against known medical reference ranges
 - Hallucination guard provides a second layer of source-text verification
 
 ### Medical Safety Guardrails
+- Every summary prefixed with explicit AI-generated disclaimer
+- Uncertainty-aware phrasing; never diagnoses or recommends treatment
+- Static safety banner in UI
 - Every summary prefixed with an explicit AI-generated disclaimer
 - Uncertainty-aware phrasing: "This may indicate…", "Your doctor can help clarify…"
 - Never diagnoses or recommends treatment
@@ -224,35 +249,36 @@ Each key finding in the UI carries a **"✓ Verified"** or **"⚠ Unverified"** 
 - Anti-hallucination constraints enforced at the prompt level: "ONLY report values that LITERALLY appear in the report", "Do NOT invent, estimate, or extrapolate"
 
 ### Critical Value Emergency Alerts
-- Detects life-threatening lab values (e.g., glucose < 50, potassium > 6.0)
-- Shows prominent alert banner with emergency helpline numbers
-- One-tap call buttons for 112, 108 (ambulance), AIIMS
+- Detects life-threatening lab values (glucose < 50, potassium > 6.0, etc.)
+- Alert banner with emergency helpline numbers (112, 108, AIIMS)
+- One-tap call buttons
 
 ### Voice-First Audio
 - Hindi audio via Amazon Translate → Amazon Polly (Kajal, neural engine)
-- Full playback controls: play/pause, skip ±10s, speed (0.75x–2x), replay
-- Compressed MP3 delivery via S3 presigned URLs (1-hour expiry)
+- Playback controls: play/pause, skip ±10s, speed (0.75x–2x), replay
+- Compressed MP3 via S3 presigned URLs (1-hour expiry)
 
 ### Government Scheme Matching (RAG)
-- 15+ national and state schemes in knowledge base
-- Retrieval via Titan Embeddings cosine similarity + hard eligibility filters
-- Transparent match factors: checklist of ✓/✗ showing State, BPL, Income, Age, Conditions
-- LLM-generated personalised recommendations explaining *why* each scheme is relevant
+- 15+ national and state schemes
+- Titan Embeddings cosine similarity + hard eligibility filters
+- Transparent match factors checklist
+- LLM-generated personalized recommendations
 
 ### Privacy-First Pipeline
-- PII anonymized before any text reaches the LLM (regex + Comprehend)
-- Documents auto-deleted from S3 immediately after OCR completes
+- PII anonymized before any text reaches LLM (regex + Comprehend)
+- Documents auto-deleted from S3 immediately after OCR
 - Session-based in-memory storage; no persistent database
-- De-anonymization only at the response layer (user-facing)
 
 ### Follow-up Chat
+- Conversational Q&A about uploaded report
+- Same safety guardrails and language support
 - Conversational Q&A about the uploaded report
 - Same safety guardrails and language support as the main analysis
 - Grounding constraints in follow-up prompt: only reference values present in the report
 - Chat history stored in session
 
 ### SMS Summary
-- Send analysis summary + scheme info to any Indian mobile number (+91)
+- Send analysis summary + scheme info to Indian mobile numbers
 - Powered by Amazon SNS (optional; disabled by default)
 
 ---
@@ -265,16 +291,16 @@ Each key finding in the UI carries a **"✓ Verified"** or **"⚠ Unverified"** 
 - Python 3.10+
 - AWS account with access to: Bedrock, Textract, Polly, Translate, Comprehend, S3
 
-### 1. Clone the repository
+### 1. Clone
 
 ```bash
 git clone https://github.com/your-username/accessai.git
 cd accessai
 ```
 
-### 2. Configure environment variables
+### 2. Configure
 
-Create a `.env` file in the project root:
+Create `.env` in project root:
 
 ```env
 AWS_ACCESS_KEY_ID=your_key
@@ -285,41 +311,41 @@ AWS_BEDROCK_MODEL_ID=anthropic.claude-haiku-4-5-20251001-v1:0
 VITE_API_URL=http://localhost:8000/api/v1
 ```
 
-### 3. Start the frontend
+### 3. Start Frontend
 
 ```bash
 npm install
 npm run dev
 ```
 
-Frontend runs at `http://localhost:8080`.
+Frontend runs at `http://localhost:8080`
 
-### 4. Start the backend
+### 4. Start Backend
 
 ```bash
 cd backend
 python -m venv venv
-venv\Scripts\activate          # Linux/Mac: source venv/bin/activate
+source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r ../requirements.txt
 uvicorn main:app --reload --port 8000
 ```
 
-API runs at `http://localhost:8000`. Docs at `http://localhost:8000/docs`.
+API runs at `http://localhost:8000` — Docs at `/docs`
 
-
+---
 
 ## API Endpoints
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/v1/documents/upload` | Upload medical report (multipart) |
+|:-------|:---------|:------------|
+| `POST` | `/api/v1/documents/upload` | Upload medical report |
 | `GET` | `/api/v1/documents/status/{session_id}` | Poll processing status |
 | `GET` | `/api/v1/documents/result/{session_id}` | Get OCR result |
 | `POST` | `/api/v1/analysis/explain` | Generate AI analysis |
 | `GET` | `/api/v1/analysis/result/{session_id}` | Get cached analysis |
-| `POST` | `/api/v1/analysis/followup` | Ask a follow-up question |
-| `POST` | `/api/v1/schemes/match` | Match eligible government schemes |
-| `GET` | `/api/v1/schemes/search` | Search schemes by state/type |
+| `POST` | `/api/v1/analysis/followup` | Follow-up question |
+| `POST` | `/api/v1/schemes/match` | Match eligible schemes |
+| `GET` | `/api/v1/schemes/search` | Search schemes |
 | `POST` | `/api/v1/audio/synthesize` | Generate Hindi audio |
 | `POST` | `/api/v1/notifications/send-summary` | Send SMS summary |
 
@@ -328,23 +354,23 @@ API runs at `http://localhost:8000`. Docs at `http://localhost:8000/docs`.
 ## Security & Privacy
 
 | Layer | Safeguard |
-|-------|-----------|
-| **PII Anonymization** | Names, phone numbers, addresses, hospital IDs redacted before LLM processing (regex + Comprehend) |
-| **Ephemeral Storage** | S3 documents auto-deleted immediately after OCR; no persistent database |
-| **Session Isolation** | Each upload gets a unique session; data lives only in server memory |
-| **Medical Disclaimer** | Static banner + LLM-prepended disclaimer on every analysis |
-| **Non-diagnostic** | Uncertainty-aware language; never diagnoses or prescribes |
-| **Transport Security** | HTTPS in production; CORS restricted to known origins |
+|:------|:----------|
+| PII Anonymization | Names, phone numbers, addresses, hospital IDs redacted before LLM |
+| Ephemeral Storage | S3 documents auto-deleted after OCR; no persistent database |
+| Session Isolation | Unique session per upload; data lives only in server memory |
+| Medical Disclaimer | Static banner + LLM-prepended disclaimer on every analysis |
+| Non-diagnostic | Uncertainty-aware language; never diagnoses or prescribes |
+| Transport Security | HTTPS in production; CORS restricted to known origins |
 
 ---
 
-## Scope & Limitations
+## Limitations
 
-- AccessAI is a guidance and navigation tool, not a clinical system
-- It does not diagnose conditions or prescribe treatment
-- OCR errors are possible on low-quality scans; outputs include quality warnings
-- Kannada text analysis is supported but Kannada audio is not (AWS Polly limitation)
-- Scheme eligibility is indicative and should be verified with the relevant authority
+- AccessAI is a guidance tool, not a clinical system
+- Does not diagnose conditions or prescribe treatment
+- OCR errors possible on low-quality scans
+- Kannada text analysis supported but audio not available (AWS Polly limitation)
+- Scheme eligibility is indicative — verify with relevant authority
 
 ---
 
@@ -352,10 +378,10 @@ API runs at `http://localhost:8000`. Docs at `http://localhost:8000/docs`.
 
 AccessAI addresses the first barrier to healthcare access: **understanding**.
 
-Most digital health tools are built for the already-connected — people with smartphones, literacy, and time. AccessAI is built for everyone else. By converting medical and policy information into clear, localized, voice-based guidance, it gives underserved communities the clarity they need to take the right action, faster.
+Most digital health tools are built for the already-connected. AccessAI is built for everyone else — converting medical and policy information into clear, localized, voice-based guidance.
 
 ---
 
 ## License
 
-MIT — see [LICENSE](LICENSE) for details.
+MIT — see [LICENSE](LICENSE)
