@@ -10,6 +10,9 @@ export interface KeyFinding {
   status: 'normal' | 'high' | 'low' | 'critical';
   explanation?: string;
   source?: string;
+  verified?: boolean;
+  verification_score?: number;
+  verification_issues?: string[];
 }
 
 export interface AbnormalValue {
@@ -49,6 +52,51 @@ export interface ConfidenceBreakdown {
   extraction_completeness: number;
   abnormal_value_certainty: number;
   llm_self_evaluation: number;
+}
+
+// ── Clinical Reasoning (machine-derived inference) ──
+
+export interface ReasoningStep {
+  observation: string;
+  test: string;
+  value: number;
+  status: string;
+  weight: number;
+}
+
+export interface ClinicalPattern {
+  pattern_name: string;
+  category: string;
+  evidence: ReasoningStep[];
+  confidence: number;
+  reasoning: string;
+  clinical_significance: 'mild' | 'moderate' | 'severe';
+  suggested_followup: string[];
+}
+
+export interface RiskScore {
+  system: string;
+  score: number;
+  level: 'low' | 'moderate' | 'elevated' | 'high';
+  contributing_factors: string[];
+  explanation: string;
+}
+
+export interface ClinicalReasoningInfo {
+  patterns_detected: ClinicalPattern[];
+  risk_scores: RiskScore[];
+  reasoning_summary: string;
+  suggested_followups: string[];
+  values_extracted_count: number;
+}
+
+export interface HallucinationCheckInfo {
+  total_findings: number;
+  verified: number;
+  flagged: number;
+  removed: number;
+  fabrication_risk: number;
+  issues: string[];
 }
 
 export interface DocumentQuality {
@@ -137,6 +185,8 @@ export interface AnalysisResponse {
   model: string;
   schemes?: SchemeMatchResponse;
   source_grounding: SourceGroundingItem[];
+  clinical_reasoning?: ClinicalReasoningInfo;
+  hallucination_check?: HallucinationCheckInfo;
   ttsAudioUrl?: string;
   explanationAudioUrl?: string;
 }
@@ -335,3 +385,6 @@ class ApiClient {
 }
 
 export const apiClient = new ApiClient();
+
+// Named alias for tests and external consumers
+export { ApiClient as AccessAIApiClient };

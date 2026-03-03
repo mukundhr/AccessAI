@@ -88,6 +88,9 @@ class KeyFinding(BaseModel):
     status: str = "normal"
     explanation: str = ""
     source: str = ""
+    verified: Optional[bool] = None
+    verification_score: Optional[float] = None
+    verification_issues: Optional[List[str]] = None
 
 
 class AbnormalValue(BaseModel):
@@ -124,6 +127,53 @@ class EmergencyInfo(BaseModel):
     disclaimer: str = ""
 
 
+# ==================== Clinical Reasoning Schemas ====================
+
+class ReasoningStep(BaseModel):
+    observation: str = ""
+    test: str = ""
+    value: float = 0.0
+    status: str = "normal"
+    weight: float = 0.0
+
+
+class ClinicalPatternInfo(BaseModel):
+    pattern_name: str = ""
+    category: str = ""
+    evidence: List[ReasoningStep] = []
+    confidence: float = 0.0
+    reasoning: str = ""
+    clinical_significance: str = "mild"
+    suggested_followup: List[str] = []
+
+
+class RiskScoreInfo(BaseModel):
+    system: str = ""
+    score: float = 0.0
+    level: str = "low"
+    contributing_factors: List[str] = []
+    explanation: str = ""
+
+
+class ClinicalReasoningInfo(BaseModel):
+    patterns_detected: List[ClinicalPatternInfo] = []
+    risk_scores: List[RiskScoreInfo] = []
+    reasoning_summary: str = ""
+    suggested_followups: List[str] = []
+    values_extracted_count: int = 0
+
+
+# ==================== Hallucination Check Schemas ====================
+
+class HallucinationCheckInfo(BaseModel):
+    total_findings: int = 0
+    verified: int = 0
+    flagged: int = 0
+    removed: int = 0
+    fabrication_risk: float = 0.0
+    issues: List[str] = []
+
+
 class AnalysisResponse(BaseModel):
     session_id: str
     document_id: str
@@ -138,6 +188,8 @@ class AnalysisResponse(BaseModel):
     ocr_confidence: float = 0
     source_grounding: List[SourceGroundingItem] = []
     emergency: Optional[EmergencyInfo] = None
+    clinical_reasoning: Optional[ClinicalReasoningInfo] = None
+    hallucination_check: Optional[HallucinationCheckInfo] = None
     language: Language = Language.ENGLISH
     model: str = ""
     processing_time_ms: int = 0

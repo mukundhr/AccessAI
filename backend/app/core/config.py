@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     # AWS Services
     AWS_S3_BUCKET: str = "accessai-documents"
     AWS_TEXTTRACT_ROLE_ARN: str = ""  # Cross-account role for Textract
-    AWS_BEDROCK_MODEL_ID: str = "moonshotai.kimi-k2.5"
+    AWS_BEDROCK_MODEL_ID: str = "anthropic.claude-haiku-4-5-20251001-v1:0"
     AWS_BEDROCK_EMBEDDING_MODEL_ID: str = "amazon.titan-embed-text-v2:0"
     AWS_POLLY_VOICE_ID_HINDI: str = "Aditi"
     AWS_POLLY_VOICE_ID_KANNADA: str = "Kajal"

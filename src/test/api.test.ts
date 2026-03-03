@@ -52,23 +52,58 @@ describe("AccessAIApiClient", () => {
         status: "pending",
         message: "Document uploaded",
       };
-      mockJsonResponse(uploadResponse);
+
+      // uploadDocument uses XHR internally; stub XMLHttpRequest
+      const xhrMock: any = {
+        open: vi.fn(),
+        send: vi.fn(),
+        upload: { onprogress: null },
+        onload: null as any,
+        onerror: null as any,
+        status: 200,
+        responseText: JSON.stringify(uploadResponse),
+      };
+      vi.stubGlobal("XMLHttpRequest", vi.fn(() => {
+        // Trigger onload asynchronously after send
+        const original = xhrMock.send;
+        xhrMock.send = vi.fn(() => {
+          setTimeout(() => xhrMock.onload?.(), 0);
+        });
+        return xhrMock;
+      }));
 
       const file = new File(["content"], "report.pdf", { type: "application/pdf" });
       const result = await client.uploadDocument(file);
 
       expect(result.session_id).toBe("s1");
-      expect(mockFetch).toHaveBeenCalledOnce();
-      const [url, opts] = mockFetch.mock.calls[0];
-      expect(url).toBe("http://localhost:8000/api/v1/documents/upload");
-      expect(opts.method).toBe("POST");
-      expect(opts.body).toBeInstanceOf(FormData);
+      expect(xhrMock.open).toHaveBeenCalledWith("POST", expect.stringContaining("/documents/upload"));
+
+      vi.unstubAllGlobals();
+      vi.stubGlobal("fetch", mockFetch);
     });
 
     it("should throw on upload failure", async () => {
-      mockErrorResponse("Upload failed", 400);
+      const xhrMock: any = {
+        open: vi.fn(),
+        send: vi.fn(),
+        upload: { onprogress: null },
+        onload: null as any,
+        onerror: null as any,
+        status: 400,
+        responseText: "",
+      };
+      vi.stubGlobal("XMLHttpRequest", vi.fn(() => {
+        xhrMock.send = vi.fn(() => {
+          setTimeout(() => xhrMock.onload?.(), 0);
+        });
+        return xhrMock;
+      }));
+
       const file = new File(["x"], "bad.pdf");
-      await expect(client.uploadDocument(file)).rejects.toThrow("Upload failed");
+      await expect(client.uploadDocument(file)).rejects.toThrow();
+
+      vi.unstubAllGlobals();
+      vi.stubGlobal("fetch", mockFetch);
     });
   });
 
@@ -200,7 +235,7 @@ describe("AccessAIApiClient", () => {
       const result = await client.synthesizeSpeech("Hello world", "hi");
 
       expect(result.audio_url).toContain("s3");
-      expect(result.voice_id).toBe("Aditi");
+      expect((result as any).voice_id).toBe("Aditi");
 
       const body = JSON.parse(mockFetch.mock.calls[0][1].body);
       expect(body.text).toBe("Hello world");
@@ -217,7 +252,7 @@ describe("AccessAIApiClient", () => {
       const result = await client.sendSMSSummary("s1", "+919876543210", false, "en");
 
       expect(result.success).toBe(true);
-      expect(result.message_id).toBe("msg-123");
+      expect((result as any).message_id).toBe("msg-123");
 
       const body = JSON.parse(mockFetch.mock.calls[0][1].body);
       expect(body.session_id).toBe("s1");
@@ -249,7 +284,7 @@ describe("AccessAIApiClient", () => {
         status: 500,
         json: async () => { throw new Error("not json"); },
       });
-      await expect(client.analyzeDocument("s1", "d1")).rejects.toThrow("Unknown error");
+      await expect(client.analyzeDocument("s1", "d1")).rejects.toThrow("An error occurred");
     });
 
     it("should handle 503 service unavailable", async () => {

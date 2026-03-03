@@ -33,7 +33,7 @@ AccessAI is intentionally **non-diagnostic** and functions as an information and
 - **Backend**: FastAPI on AWS Lambda (serverless)  
 - **OCR**: Amazon Textract  
 - **Text-to-Speech**: Amazon Polly (Neural voices)  
-- **LLM**: Amazon Bedrock (Claude 4 Sonnet)  
+- **LLM**: Amazon Bedrock (Claude Haiku 4.5)  
 - **Vector Search**: FAISS (MVP) / Amazon OpenSearch (production)  
 - **Storage**: Amazon S3 with lifecycle-based deletion  
 - **Caching**: CloudFront CDN, browser service worker cache  

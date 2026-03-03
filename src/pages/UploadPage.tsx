@@ -17,7 +17,8 @@ import { useI18n } from "@/lib/i18n";
 import type {
   AnalysisResponse, DocumentStatus, DocumentUploadResponse,
   SchemeMatchResponse, Language, FollowUpResponse, KeyFinding, AbnormalValue,
-  SourceGroundingItem, EmergencyInfo, SMSResponse
+  SourceGroundingItem, EmergencyInfo, SMSResponse, ClinicalPattern, RiskScore,
+  HallucinationCheckInfo
 } from "@/lib/api";
 
 type Step = "upload" | "processing" | "results";
@@ -83,6 +84,7 @@ const UploadPage = () => {
   const [showFindings, setShowFindings] = useState(true);
   const [showAbnormal, setShowAbnormal] = useState(true);
   const [showNotes, setShowNotes] = useState(true);
+  const [showReasoning, setShowReasoning] = useState(true);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<number | null>(null);
@@ -720,7 +722,20 @@ const UploadPage = () => {
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between flex-wrap gap-1">
-                                  <span className="text-sm font-medium text-foreground">{finding.test_name}</span>
+                                  <span className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                                    {finding.test_name}
+                                    {finding.verified !== undefined && (
+                                      finding.verified ? (
+                                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-green-500/20 text-[10px] font-medium text-green-400" title="Value verified in source document">
+                                          <CheckCircle2 className="w-2.5 h-2.5" /> Verified
+                                        </span>
+                                      ) : (
+                                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-yellow-500/20 text-[10px] font-medium text-yellow-400" title="Could not fully verify against source">
+                                          <AlertTriangle className="w-2.5 h-2.5" /> Unverified
+                                        </span>
+                                      )
+                                    )}
+                                  </span>
                                   <span className={`text-xs font-mono ${getStatusColor(finding.status)}`}>
                                     {finding.value}
                                   </span>
@@ -883,6 +898,245 @@ const UploadPage = () => {
                       </motion.li>
                     ))}
                   </ol>
+                </GlassCard>
+              )}
+
+              {/* Clinical Reasoning — Machine-Derived Inference */}
+              {analysisResult?.clinical_reasoning && (
+                analysisResult.clinical_reasoning.patterns_detected.length > 0 ||
+                analysisResult.clinical_reasoning.risk_scores.length > 0
+              ) && (
+                <GlassCard delay={0.33}>
+                  <button
+                    onClick={() => setShowReasoning(!showReasoning)}
+                    className="w-full flex items-center justify-between"
+                  >
+                    <h3 className="font-display font-bold text-lg text-foreground flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-violet-400" />
+                      Clinical Reasoning
+                      <span className="text-xs font-normal text-violet-400/70 ml-1">
+                        (machine-inferred)
+                      </span>
+                    </h3>
+                    {showReasoning ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+                  </button>
+
+                  <AnimatePresence>
+                    {showReasoning && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="overflow-hidden"
+                      >
+                        {/* Detected Patterns */}
+                        {analysisResult.clinical_reasoning.patterns_detected.length > 0 && (
+                          <div className="mt-4 space-y-3">
+                            <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Detected Patterns</p>
+                            {analysisResult.clinical_reasoning.patterns_detected.map((pattern: ClinicalPattern, i: number) => (
+                              <div key={i} className="glass-card p-3 border-violet-500/20">
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <span className="text-sm font-medium text-foreground">{pattern.pattern_name}</span>
+                                  <div className="flex items-center gap-2">
+                                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                                      pattern.clinical_significance === "severe"
+                                        ? "bg-red-500/20 text-red-400"
+                                        : pattern.clinical_significance === "moderate"
+                                        ? "bg-yellow-500/20 text-yellow-400"
+                                        : "bg-green-500/20 text-green-400"
+                                    }`}>
+                                      {pattern.clinical_significance}
+                                    </span>
+                                    <span className="text-xs text-violet-400 font-mono">
+                                      {Math.round(pattern.confidence * 100)}%
+                                    </span>
+                                  </div>
+                                </div>
+                                <p className="text-xs text-secondary-foreground mb-2">{pattern.reasoning}</p>
+                                {/* Evidence chain */}
+                                <div className="space-y-1 mb-2">
+                                  {pattern.evidence.map((step, j) => (
+                                    <div key={j} className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                                        step.status === "high" ? "bg-red-400" : step.status === "low" ? "bg-blue-400" : "bg-green-400"
+                                      }`} />
+                                      <span className="font-mono">{step.observation}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                                {pattern.suggested_followup.length > 0 && (
+                                  <div className="pt-2 border-t border-border/30">
+                                    <p className="text-[10px] text-muted-foreground/80">
+                                      Follow-up: {pattern.suggested_followup.join(" · ")}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Risk Scores */}
+                        {analysisResult.clinical_reasoning.risk_scores.length > 0 && (
+                          <div className="mt-4 space-y-3">
+                            <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Organ-System Risk Scores</p>
+                            {analysisResult.clinical_reasoning.risk_scores.map((risk: RiskScore, i: number) => (
+                              <div key={i} className="glass-card p-3">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-sm font-medium text-foreground">{risk.system}</span>
+                                  <span className={`text-xs px-2 py-0.5 rounded-full font-mono ${
+                                    risk.level === "high"
+                                      ? "bg-red-500/20 text-red-400"
+                                      : risk.level === "elevated"
+                                      ? "bg-orange-500/20 text-orange-400"
+                                      : risk.level === "moderate"
+                                      ? "bg-yellow-500/20 text-yellow-400"
+                                      : "bg-green-500/20 text-green-400"
+                                  }`}>
+                                    {risk.score}/100 — {risk.level}
+                                  </span>
+                                </div>
+                                {/* Score bar */}
+                                <div className="w-full h-2 rounded-full bg-muted overflow-hidden mb-2">
+                                  <div
+                                    className={`h-full rounded-full transition-all ${
+                                      risk.level === "high"
+                                        ? "bg-red-500"
+                                        : risk.level === "elevated"
+                                        ? "bg-orange-500"
+                                        : risk.level === "moderate"
+                                        ? "bg-yellow-500"
+                                        : "bg-green-500"
+                                    }`}
+                                    style={{ width: `${Math.min(risk.score, 100)}%` }}
+                                  />
+                                </div>
+                                <p className="text-xs text-muted-foreground">{risk.explanation}</p>
+                                {risk.contributing_factors.length > 0 && (
+                                  <p className="text-[10px] text-muted-foreground/70 mt-1">
+                                    Factors: {risk.contributing_factors.join("; ")}
+                                  </p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Suggested follow-ups */}
+                        {analysisResult.clinical_reasoning.suggested_followups.length > 0 && (
+                          <div className="mt-4 p-3 rounded-lg bg-violet-500/10 border border-violet-500/20">
+                            <p className="text-xs font-medium text-violet-400 mb-1.5">Suggested Follow-up Tests</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {analysisResult.clinical_reasoning.suggested_followups.map((f, i) => (
+                                <span key={i} className="text-[11px] px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-300 border border-violet-500/20">
+                                  {f}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <p className="text-[10px] text-muted-foreground/60 mt-3 italic">
+                          Extracted {analysisResult.clinical_reasoning.values_extracted_count} lab values.
+                          Patterns are machine-inferred from clinical correlation rules — discuss with your doctor for confirmation.
+                        </p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </GlassCard>
+              )}
+
+              {/* Hallucination Guard Panel */}
+              {analysisResult?.hallucination_check && (
+                <GlassCard delay={0.33}>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Shield className="w-5 h-5 text-green-400" />
+                      <h3 className="text-lg font-semibold text-white">Hallucination Guard</h3>
+                    </div>
+                    {(() => {
+                      const hc = analysisResult.hallucination_check!;
+                      const verifiedPct = hc.total_findings > 0
+                        ? Math.round((hc.verified / hc.total_findings) * 100)
+                        : 100;
+                      const riskColor = hc.fabrication_risk < 0.1
+                        ? 'text-green-400' : hc.fabrication_risk < 0.3
+                        ? 'text-yellow-400' : 'text-red-400';
+                      const riskLabel = hc.fabrication_risk < 0.1
+                        ? 'Low Risk' : hc.fabrication_risk < 0.3
+                        ? 'Moderate Risk' : 'High Risk';
+                      const barColor = hc.fabrication_risk < 0.1
+                        ? 'bg-green-500' : hc.fabrication_risk < 0.3
+                        ? 'bg-yellow-500' : 'bg-red-500';
+                      return (
+                        <div className="space-y-3">
+                          {/* Stats row */}
+                          <div className="grid grid-cols-4 gap-2">
+                            <div className="bg-white/5 rounded-lg p-2 text-center">
+                              <div className="text-lg font-bold text-white">{hc.total_findings}</div>
+                              <div className="text-xs text-white/50">Total</div>
+                            </div>
+                            <div className="bg-white/5 rounded-lg p-2 text-center">
+                              <div className="text-lg font-bold text-green-400">{hc.verified}</div>
+                              <div className="text-xs text-white/50">Verified</div>
+                            </div>
+                            <div className="bg-white/5 rounded-lg p-2 text-center">
+                              <div className="text-lg font-bold text-yellow-400">{hc.flagged}</div>
+                              <div className="text-xs text-white/50">Flagged</div>
+                            </div>
+                            <div className="bg-white/5 rounded-lg p-2 text-center">
+                              <div className="text-lg font-bold text-red-400">{hc.removed}</div>
+                              <div className="text-xs text-white/50">Removed</div>
+                            </div>
+                          </div>
+
+                          {/* Verification bar */}
+                          <div>
+                            <div className="flex justify-between text-xs mb-1">
+                              <span className="text-white/60">Findings verified against source</span>
+                              <span className="text-white font-medium">{verifiedPct}%</span>
+                            </div>
+                            <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                              <motion.div
+                                className={`h-full rounded-full ${barColor}`}
+                                initial={{ width: 0 }}
+                                animate={{ width: `${verifiedPct}%` }}
+                                transition={{ duration: 0.8, ease: "easeOut" }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Fabrication risk */}
+                          <div className="flex items-center justify-between bg-white/5 rounded-lg p-2">
+                            <span className="text-sm text-white/60">Fabrication Risk</span>
+                            <span className={`text-sm font-bold ${riskColor}`}>
+                              {riskLabel} ({(hc.fabrication_risk * 100).toFixed(0)}%)
+                            </span>
+                          </div>
+
+                          {/* Issues (if any) */}
+                          {hc.issues.length > 0 && (
+                            <div className="space-y-1">
+                              <p className="text-xs text-white/50 font-medium">Guard Actions:</p>
+                              {hc.issues.map((issue: string, i: number) => (
+                                <div key={i} className="flex items-start gap-1.5 text-xs text-yellow-300/80">
+                                  <AlertTriangle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                                  <span>{issue}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {hc.fabrication_risk === 0 && hc.total_findings > 0 && (
+                            <div className="flex items-center gap-1.5 text-xs text-green-400/80">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>All findings verified against source document</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </GlassCard>
               )}
 

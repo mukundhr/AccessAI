@@ -44,7 +44,19 @@ PII is stripped before AI processing (Comprehend + regex)
         ↓
 S3 document auto-deleted (healthcare privacy)
         ↓
-AI extracts, interprets, and simplifies medical content (Bedrock)
+Clinical Reasoning Engine — deterministic rule-based inference
+  • 16 cross-test correlation rules
+  • 5 organ-system risk calculators
+  • Machine-derived patterns injected into LLM prompt
+        ↓
+AI validates, enriches, and simplifies medical content (Bedrock)
+        ↓
+Hallucination Guard — post-hoc verification of every LLM claim
+  • Value anchoring against source text
+  • Test-name anchoring with alias matching
+  • Reference-range plausibility check
+  • Status consistency auto-correction
+  • Ungrounded findings flagged or removed
         ↓
 Critical values detected → emergency alerts
         ↓
@@ -74,7 +86,7 @@ The user selects their preferred language (English / Hindi / Kannada), then uplo
 The system uploads to S3, extracts text via Textract, auto-deletes the S3 file for privacy, anonymizes PII (names, phone numbers, hospital IDs), and passes sanitized text to the AI layer.
 
 **Step 3 — Analysis**
-The AI generates a plain-language summary with key findings, abnormal values, things to note, and questions to ask your doctor. Each finding is source-grounded (citing where in the report the value was found). Critical values trigger emergency alerts with helpline numbers.
+The Clinical Reasoning Engine first runs deterministic inference — matching 16 cross-test correlation rules (e.g., low Hb + low MCV + low ferritin → iron-deficiency anaemia pattern) and computing 5 organ-system risk scores. This machine-derived reasoning is injected into the LLM prompt so the model *validates and enriches* rather than generating from scratch. After the LLM responds, the Hallucination Guard verifies every reported value and test name against the source text, auto-corrects inconsistent statuses, and removes ungrounded findings. Each finding receives a "Verified" or "Unverified" badge. Critical values trigger emergency alerts with helpline numbers.
 
 **Step 4 — Audio**
 The summary is translated to Hindi via Amazon Translate (with Bedrock LLM fallback) and read aloud using Amazon Polly's neural voice (Kajal).
@@ -107,6 +119,8 @@ A chat interface lets the user ask follow-up questions about their report. Respo
 │  ┌─────▼────────────▼────────────▼────────────┐    │
 │  │              Service Layer                  │    │
 │  │  OCR · PII Anonymizer · Medical Analysis   │    │
+│  │  Clinical Reasoning Engine (rule-based)     │    │
+│  │  Hallucination Guard (post-hoc verifier)    │    │
 │  │  Scheme RAG · Emergency Detector           │    │
 │  │  Audio (Translate + Polly) · SMS            │    │
 │  └─────┬────────────┬────────────┬────────────┘    │
@@ -115,7 +129,7 @@ A chat interface lets the user ask follow-up questions about their report. Respo
          │            │            │
 ┌────────▼────────────▼────────────▼──────────────────┐
 │                 AWS Services                         │
-│  S3 · Textract · Bedrock (Kimi K2.5)                │
+│  S3 · Textract · Bedrock (Claude Haiku 4.5)         │
 │  Polly · Translate · Comprehend · Titan Embeddings   │
 │  SNS (SMS)                                           │
 └──────────────────────────────────────────────────────┘
@@ -154,7 +168,7 @@ A chat interface lets the user ask follow-up questions about their report. Respo
 
 | Service | Purpose |
 |---------|---------|
-| **Amazon Bedrock** | LLM analysis & follow-up chat (Kimi K2.5 via Converse API) |
+| **Amazon Bedrock** | LLM analysis & follow-up chat (Claude Haiku 4.5 via Converse API) |
 | **Amazon Bedrock Titan Embeddings** | Semantic vector search for scheme RAG |
 | **Amazon Textract** | OCR — text, tables, key-value extraction from reports |
 | **Amazon Polly** | Neural text-to-speech (Kajal voice, Hindi) |
@@ -172,19 +186,42 @@ A chat interface lets the user ask follow-up questions about their report. Respo
 - Async Textract for multi-page PDFs; sync for single images
 - Handles low-quality scans with quality scoring and fallback OCR
 
+### Clinical Reasoning Engine (Deterministic AI)
+A rule-based inference engine that runs *before* the LLM, producing machine-derived clinical insights:
+- **16 cross-test correlation rules** — iron-deficiency anaemia, renal impairment, diabetes pattern, dyslipidaemia, hepatocellular injury, hypothyroidism, hyperthyroidism, metabolic syndrome, infection markers, coagulation risk, gout/hyperuricaemia, vitamin D deficiency, B12 deficiency, electrolyte imbalance, cholestatic pattern, pancytopenia
+- **5 organ-system risk calculators** — cardiovascular, renal, metabolic, hepatic, haematological
+- **Structured reasoning chains** — each pattern carries weighted evidence steps, a confidence score, clinical significance level, and suggested follow-up tests
+- The reasoning output is injected into the LLM prompt so the model *validates and enriches* existing inference rather than generating from scratch
+
+### Hallucination Guard (Post-hoc Verification)
+A 5-layer verification system that runs *after* the LLM responds, catching fabricated or inconsistent claims:
+
+| Layer | Check | Action |
+|-------|-------|--------|
+| **Value Anchoring** | Every numeric value must appear (±5% tolerance) in the OCR source text | Flag or remove if absent |
+| **Name Anchoring** | Every test name must match a token in the source (with alias matching for 30+ lab tests) | Flag if unrecognised |
+| **Range Plausibility** | The "normal range" the LLM cites is checked against authoritative reference data | Flag if >30% deviation |
+| **Status Consistency** | If the LLM says "high" but the value is within the reference range (or vice versa) | Auto-correct the status |
+| **Fabrication Scoring** | Per-finding score (0.0–1.0); findings below 0.25 are removed, 0.25–0.5 are flagged | Confidence penalty applied |
+
+Each key finding in the UI carries a **"✓ Verified"** or **"⚠ Unverified"** badge. An aggregate Hallucination Guard panel shows verified/flagged/removed counts and fabrication risk.
+
 ### Transparent AI Confidence Scoring
 - Weighted 4-signal formula (not arbitrary): OCR readability (30%), extraction completeness (25%), abnormal-value certainty (25%), LLM self-evaluation (20%)
 - Full breakdown visible in the UI so users and reviewers can audit the score
+- Confidence is penalised (up to 25 points) proportional to the hallucination guard's fabrication risk
 
 ### Source-Grounded Findings
 - Each key finding cites *where* in the report the value was extracted (e.g., "CBC table row 3")
 - Local pattern-matching cross-checks LLM output against known medical reference ranges
+- Hallucination guard provides a second layer of source-text verification
 
 ### Medical Safety Guardrails
 - Every summary prefixed with an explicit AI-generated disclaimer
 - Uncertainty-aware phrasing: "This may indicate…", "Your doctor can help clarify…"
 - Never diagnoses or recommends treatment
 - Static safety banner rendered in the UI
+- Anti-hallucination constraints enforced at the prompt level: "ONLY report values that LITERALLY appear in the report", "Do NOT invent, estimate, or extrapolate"
 
 ### Critical Value Emergency Alerts
 - Detects life-threatening lab values (e.g., glucose < 50, potassium > 6.0)
@@ -211,6 +248,7 @@ A chat interface lets the user ask follow-up questions about their report. Respo
 ### Follow-up Chat
 - Conversational Q&A about the uploaded report
 - Same safety guardrails and language support as the main analysis
+- Grounding constraints in follow-up prompt: only reference values present in the report
 - Chat history stored in session
 
 ### SMS Summary
@@ -243,7 +281,7 @@ AWS_ACCESS_KEY_ID=your_key
 AWS_SECRET_ACCESS_KEY=your_secret
 AWS_REGION=us-east-1
 AWS_S3_BUCKET=accessai-documents
-AWS_BEDROCK_MODEL_ID=moonshotai.kimi-k2.5
+AWS_BEDROCK_MODEL_ID=anthropic.claude-haiku-4-5-20251001-v1:0
 VITE_API_URL=http://localhost:8000/api/v1
 ```
 

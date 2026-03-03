@@ -4,6 +4,8 @@ import re
 from typing import Dict, Any, Optional, List
 
 from app.core.config import settings
+from app.services.clinical_reasoning import clinical_reasoning_engine
+from app.services.hallucination_guard import hallucination_guard
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +94,15 @@ IMPORTANT RULES:
 8. Begin the summary with: "⚕️ This is an AI-generated interpretation for informational purposes only. Always consult a qualified medical professional."
 9. For EACH key finding, include the field "source" indicating where in the report the value was found (e.g. "Row 3 of CBC table", "Line: Hemoglobin 12.5 g/dL"). If unclear, say "Derived from report text".
 
+ANTI-HALLUCINATION CONSTRAINTS (MANDATORY):
+- ONLY report test names and values that LITERALLY appear in the medical report text above.
+- Do NOT invent, estimate, or extrapolate values not present in the report.
+- Do NOT include tests that are not mentioned in the document.
+- If a normal range is not stated in the report, use widely accepted clinical ranges and note "standard reference".
+- If you are unsure whether a value is present, OMIT it rather than guess.
+- EVERY numeric value you report MUST be traceable to a specific location in the report text.
+- Set confidence_notes to describe any limitations honestly.
+
 MEDICAL REPORT TEXT:
 ---
 {extracted_text}
@@ -139,6 +150,26 @@ CRITICAL: Respond ONLY with valid JSON. No markdown, no code blocks, no extra te
 
         return prompt
 
+    def _build_reasoning_enhanced_prompt(
+        self,
+        base_prompt: str,
+        reasoning_block: str,
+    ) -> str:
+        """Inject machine-derived reasoning into the prompt so the LLM
+        validates and enriches it rather than starting from scratch."""
+        if not reasoning_block:
+            return base_prompt
+
+        # Insert reasoning block just before the JSON instruction
+        marker = "Please respond ONLY in valid JSON"
+        if marker in base_prompt:
+            return base_prompt.replace(
+                marker,
+                reasoning_block + "\n\n" + marker,
+            )
+        # Fallback: append before end
+        return base_prompt + "\n\n" + reasoning_block
+
     async def analyze(
         self,
         bedrock_runtime,
@@ -149,11 +180,21 @@ CRITICAL: Respond ONLY with valid JSON. No markdown, no code blocks, no extra te
         user_context: Optional[Dict] = None,
         ocr_confidence: float = 0,
     ) -> Dict[str, Any]:
-        """Generate structured medical analysis."""
+        """Generate structured medical analysis with machine-reasoned inference."""
 
-        prompt = self._build_structured_prompt(
+        # ── Step 1: Machine reasoning (rule-based, deterministic) ──
+        reasoning_result = clinical_reasoning_engine.reason(
+            extracted_text,
+            key_value_pairs=key_value_pairs,
+            tables=tables,
+        )
+        reasoning_block = clinical_reasoning_engine.format_for_prompt(reasoning_result)
+
+        # ── Step 2: Build prompt with reasoning injected ──
+        base_prompt = self._build_structured_prompt(
             extracted_text, language, key_value_pairs, tables, user_context
         )
+        prompt = self._build_reasoning_enhanced_prompt(base_prompt, reasoning_block)
 
         try:
             response = bedrock_runtime.converse(
@@ -179,6 +220,35 @@ CRITICAL: Respond ONLY with valid JSON. No markdown, no code blocks, no extra te
             local_abnormals = self._detect_abnormal_values_locally(extracted_text)
             if local_abnormals:
                 analysis["source_grounding"] = local_abnormals
+
+            # ── Step 3: Hallucination guard — verify LLM claims ──
+            analysis, hallucination_report = hallucination_guard.verify_analysis(
+                analysis=analysis,
+                source_text=extracted_text,
+                key_value_pairs=key_value_pairs,
+                tables=tables,
+            )
+            analysis["hallucination_check"] = analysis.get("hallucination_check", {})
+
+            # Penalise confidence if fabrication detected
+            fab_risk = hallucination_report.fabrication_risk
+            if fab_risk > 0:
+                penalty = int(fab_risk * 25)  # up to 25-point penalty
+                analysis["confidence"] = max(10, analysis["confidence"] - penalty)
+                logger.info(
+                    f"Hallucination guard: fabrication_risk={fab_risk:.2f}, "
+                    f"confidence penalty={penalty}"
+                )
+
+            # ── Step 4: Attach machine reasoning artefacts ──
+            reasoning_dict = reasoning_result.to_dict()
+            analysis["clinical_reasoning"] = {
+                "patterns_detected": reasoning_dict.get("patterns_detected", []),
+                "risk_scores": reasoning_dict.get("risk_scores", []),
+                "reasoning_summary": reasoning_dict.get("reasoning_summary", ""),
+                "suggested_followups": reasoning_dict.get("suggested_followups", []),
+                "values_extracted_count": len(reasoning_dict.get("extracted_values", [])),
+            }
 
             return analysis
 
@@ -365,6 +435,9 @@ RULES:
 3. NEVER diagnose or recommend treatment.
 4. Use uncertainty-aware phrasing.
 5. Recommend consulting a doctor for medical advice.
+6. ONLY reference values and tests that appear in the original report text below.
+7. Do NOT invent or assume any test results not shown in the report.
+8. If the answer cannot be determined from the report, say so honestly.
 
 PREVIOUS ANALYSIS SUMMARY:
 {summary}

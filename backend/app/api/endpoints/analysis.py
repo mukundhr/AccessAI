@@ -5,6 +5,7 @@ import time
 from app.schemas import (
     AnalysisRequest, AnalysisResponse, FollowUpRequest, FollowUpResponse,
     Language, ProcessingStatus, KeyFinding, AbnormalValue, SourceGroundingItem,
+    ClinicalReasoningInfo, HallucinationCheckInfo,
 )
 from app.services.aws_service import aws_service
 from app.services.medical_analysis import medical_analysis_service
@@ -88,11 +89,17 @@ async def analyze_medical_report(request: AnalysisRequest):
             analysis = _deanonymise_analysis(analysis, mapping)
 
         # Build response
-        key_findings = [
-            KeyFinding(**kf) for kf in analysis.get("key_findings", [])
-        ]
+        key_findings = []
+        for kf in analysis.get("key_findings", []):
+            # Map hallucination guard underscore-prefixed fields
+            kf_clean = {k: v for k, v in kf.items() if not k.startswith("_")}
+            kf_clean["verified"] = kf.get("_verified")
+            kf_clean["verification_score"] = kf.get("_verification_score")
+            kf_clean["verification_issues"] = kf.get("_verification_issues", [])
+            key_findings.append(KeyFinding(**kf_clean))
         abnormal_values = [
-            AbnormalValue(**av) for av in analysis.get("abnormal_values", [])
+            AbnormalValue(**{k: v for k, v in av.items() if not k.startswith("_")})
+            for av in analysis.get("abnormal_values", [])
         ]
         source_grounding = [
             SourceGroundingItem(**sg) for sg in analysis.get("source_grounding", [])
@@ -123,6 +130,16 @@ async def analyze_medical_report(request: AnalysisRequest):
             abnormal_values=analysis.get("abnormal_values", []),
         )
         response_data["emergency"] = emergency_result
+
+        # Attach clinical reasoning (machine-derived inference)
+        raw_reasoning = analysis.get("clinical_reasoning")
+        if raw_reasoning:
+            response_data["clinical_reasoning"] = ClinicalReasoningInfo(**raw_reasoning)
+
+        # Attach hallucination check report
+        raw_halluc = analysis.get("hallucination_check")
+        if raw_halluc:
+            response_data["hallucination_check"] = HallucinationCheckInfo(**raw_halluc)
 
         # Store in session
         sessions_store.update(request.session_id, {
