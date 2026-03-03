@@ -131,6 +131,9 @@ export interface Scheme {
   state: string;
   coverage: string;
   relevance_score: number;
+  match_score: number;  // 0-100 smart matching score
+  match_percentage: number;  // Display percentage for UI
+  semantic_similarity: number;  // Semantic match percentage
   match_reason?: string;
   match_factors?: SchemeMatchFactor[];
   conditions_covered?: string[];
@@ -233,7 +236,6 @@ class ApiClient {
   ): Promise<DocumentUploadResponse> {
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('language', language);
 
     const xhr = new XMLHttpRequest();
     

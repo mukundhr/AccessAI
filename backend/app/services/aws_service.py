@@ -65,9 +65,44 @@ class AWSService:
         else:
             logger.info("SMS (SNS) disabled — set SMS_ENABLED=true to activate")
         
+        # Setup S3 lifecycle policy for auto-delete after 1 day (privacy)
+        try:
+            import asyncio
+            asyncio.create_task(self.setup_bucket_lifecycle_policy())
+        except Exception as e:
+            logger.warning(f"Could not schedule lifecycle setup: {e}")
+        
         self._initialized = True
         logger.info("AWS services initialized successfully")
     
+    async def setup_bucket_lifecycle_policy(self):
+        """Configure S3 bucket to auto-delete objects after 1 day for privacy."""
+        try:
+            self.s3_client.put_bucket_lifecycle_configuration(
+                Bucket=settings.AWS_S3_BUCKET,
+                LifecycleConfiguration={
+                    'Rules': [
+                        {
+                            'ID': 'AutoDeleteAfter1Day',
+                            'Status': 'Enabled',
+                            'Filter': {
+                                'Prefix': 'sessions/'
+                            },
+                            'Expiration': {
+                                'Days': 1
+                            },
+                            'AbortIncompleteMultipartUpload': {
+                                'DaysAfterInitiation': 1
+                            }
+                        }
+                    ]
+                }
+            )
+            logger.info(f"S3 lifecycle policy configured for bucket: {settings.AWS_S3_BUCKET}")
+        except Exception as e:
+            # Don't fail if policy already exists or user lacks permissions
+            logger.warning(f"Could not set lifecycle policy: {e}")
+
     async def upload_document(self, file_content: bytes, file_name: str, session_id: str) -> Dict[str, str]:
         try:
             key = f"sessions/{session_id}/documents/{datetime.now().timestamp()}_{file_name}"
@@ -76,11 +111,16 @@ class AWSService:
                 Bucket=settings.AWS_S3_BUCKET,
                 Key=key,
                 Body=file_content,
-                ContentType=self._get_content_type(file_name)
+                ContentType=self._get_content_type(file_name),
+                Metadata={
+                    'session-id': session_id,
+                    'upload-timestamp': datetime.now().isoformat()
+                }
             )
             
             s3_uri = f"s3://{settings.AWS_S3_BUCKET}/{key}"
-            logger.info(f"Document uploaded: {s3_uri}")
+            # Privacy: Don't log the full key which may contain file names
+            logger.info(f"Document uploaded to S3 [session: {session_id}]")
             
             return {
                 "s3_uri": s3_uri,
@@ -88,8 +128,9 @@ class AWSService:
                 "bucket": settings.AWS_S3_BUCKET
             }
         except Exception as e:
-            logger.error(f"S3 upload error: {str(e)}")
-            raise
+            # Privacy: Don't include file name in error logs
+            logger.error(f"S3 upload error for session {session_id}: {type(e).__name__}")
+            raise Exception("Failed to upload document to storage") from e
     
     async def download_document(self, s3_key: str) -> bytes:
         try:
@@ -102,14 +143,19 @@ class AWSService:
             logger.error(f"S3 download error: {str(e)}")
             raise
     
-    async def delete_document(self, s3_key: str):
+    async def delete_document(self, s3_key: str, session_id: str = None):
+        """Delete document from S3. Privacy: don't log the key."""
         try:
             self.s3_client.delete_object(
                 Bucket=settings.AWS_S3_BUCKET,
                 Key=s3_key
             )
+            # Privacy: Only log session ID, not the key
+            if session_id:
+                logger.info(f"S3 object deleted for session {session_id}")
         except Exception as e:
-            logger.error(f"S3 delete error: {str(e)}")
+            # Privacy: Don't include key in error logs
+            logger.error(f"S3 delete error: {type(e).__name__}")
     
     async def generate_presigned_url(self, s3_key: str, expiration: int = 3600) -> str:
         try:

@@ -14,6 +14,13 @@ import GlassCard from "@/components/GlassCard";
 import WaveformVisualizer from "@/components/WaveformVisualizer";
 import { apiClient } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import type {
   AnalysisResponse, DocumentStatus, DocumentUploadResponse,
   SchemeMatchResponse, Language, FollowUpResponse, KeyFinding, AbnormalValue,
@@ -85,6 +92,9 @@ const UploadPage = () => {
   const [showAbnormal, setShowAbnormal] = useState(true);
   const [showNotes, setShowNotes] = useState(true);
   const [showReasoning, setShowReasoning] = useState(true);
+
+  // Privacy modal
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<number | null>(null);
@@ -429,6 +439,15 @@ const UploadPage = () => {
                 {t("upload.heading")}
               </h2>
               <div className="flex items-center gap-2">
+                {/* Privacy Badge */}
+                <button
+                  onClick={() => setShowPrivacyModal(true)}
+                  className="glass-card flex items-center gap-1.5 px-3 py-1.5 text-xs text-emerald-400 hover:text-emerald-300 transition-colors border border-emerald-500/30"
+                  aria-label="View privacy information"
+                >
+                  <Shield className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">PII Anonymized</span>
+                </button>
                 {/* Language Selector */}
                 <select
                   value={selectedLanguage}
@@ -598,14 +617,30 @@ const UploadPage = () => {
 
               {/* AI Summary */}
               <GlassCard delay={0.1}>
-                {/* Medical Safety Disclaimer */}
-                <div className="mb-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-2">
-                  <Shield className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
-                  <p className="text-[11px] text-amber-300 leading-relaxed">
-                    <span className="font-semibold">Medical Disclaimer:</span> This is an AI-generated interpretation for informational purposes only.
-                    It is <span className="font-semibold">not a medical diagnosis</span>.
-                    Always consult a qualified healthcare professional before making any medical decisions.
-                  </p>
+                {/* Medical Safety Framing Header */}
+                <div className="mb-4 space-y-2">
+                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                    <div className="flex items-start gap-2 mb-2">
+                      <Shield className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
+                      <p className="text-xs text-amber-300 font-semibold">
+                        AI-generated interpretation for informational purposes only
+                      </p>
+                    </div>
+                    <ul className="space-y-1 ml-6">
+                      <li className="text-[11px] text-amber-300/80 flex items-start gap-1.5">
+                        <span className="text-amber-400 mt-0.5">•</span>
+                        Based on available report data only
+                      </li>
+                      <li className="text-[11px] text-amber-300/80 flex items-start gap-1.5">
+                        <span className="text-amber-400 mt-0.5">•</span>
+                        No definitive diagnoses can be made
+                      </li>
+                      <li className="text-[11px] text-amber-300/80 flex items-start gap-1.5">
+                        <span className="text-amber-400 mt-0.5">•</span>
+                        Always consult a qualified healthcare professional
+                      </li>
+                    </ul>
+                  </div>
                 </div>
 
                 <h3 className="font-display font-bold text-lg mb-4 text-foreground flex items-center gap-2">
@@ -1046,6 +1081,71 @@ const UploadPage = () => {
                 </GlassCard>
               )}
 
+              {/* AI Reasoning Panel — How we inferred this */}
+              {analysisResult?.key_findings && analysisResult.key_findings.length > 0 && (
+                <GlassCard delay={0.32}>
+                  <h3 className="font-display font-bold text-lg mb-4 text-foreground flex items-center gap-2">
+                    <Brain className="w-5 h-5 text-primary" />
+                    How We Inferred This
+                    <span className="text-xs font-normal text-muted-foreground ml-1">
+                      (AI reasoning chain)
+                    </span>
+                  </h3>
+                  
+                  <div className="space-y-2">
+                    {analysisResult.key_findings.slice(0, 5).map((finding: KeyFinding, i: number) => (
+                      <div key={i} className="flex items-start gap-3 p-2.5 rounded-lg bg-muted/50">
+                        <div className={`mt-0.5 flex-shrink-0 ${
+                          finding.status === 'high' ? 'text-red-400' : 
+                          finding.status === 'low' ? 'text-blue-400' : 
+                          finding.status === 'critical' ? 'text-red-500' : 'text-green-400'
+                        }`}>
+                          {finding.status === 'high' ? <ArrowUp className="w-4 h-4" /> : 
+                           finding.status === 'low' ? <ArrowDown className="w-4 h-4" /> : 
+                           finding.status === 'critical' ? <AlertTriangle className="w-4 h-4" /> : 
+                           <CheckCircle2 className="w-4 h-4" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-foreground">
+                            <span className="font-medium">{finding.test_name}</span>
+                            {' → '}
+                            <span className={
+                              finding.status === 'normal' ? 'text-green-400' : 'text-amber-400'
+                            }>
+                              {finding.status === 'normal' ? 'within normal range' : 
+                               finding.status === 'high' ? 'elevated level detected' :
+                               finding.status === 'low' ? 'below expected range' :
+                               finding.status === 'critical' ? 'critical value alert' : 'abnormal value'}
+                            </span>
+                          </p>
+                          {finding.explanation && (
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {finding.explanation}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {analysisResult.abnormal_values.length > 0 && (
+                    <div className="mt-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                      <p className="text-xs text-amber-300">
+                        <span className="font-semibold">Inference logic:</span>{' '}
+                        {analysisResult.abnormal_values.length} abnormal value{analysisResult.abnormal_values.length !== 1 ? 's' : ''} flagged based on reference range comparison. 
+                        {analysisResult.abnormal_values.some(av => av.severity === 'severe') && 
+                          ' Critical values require immediate medical attention.'}
+                      </p>
+                    </div>
+                  )}
+                  
+                  <p className="text-[10px] text-muted-foreground/60 mt-3 italic">
+                    Reasoning based on extracted values compared against standard medical reference ranges. 
+                    Always confirm with a healthcare professional.
+                  </p>
+                </GlassCard>
+              )}
+
               {/* Hallucination Guard Panel */}
               {analysisResult?.hallucination_check && (
                 <GlassCard delay={0.33}>
@@ -1400,10 +1500,18 @@ const UploadPage = () => {
                                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{scheme.state === "all_india" ? "All India" : scheme.state}</span>
                               </div>
                             </div>
-                            {scheme.relevance_score > 0 && (
-                              <div className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg bg-amber-500/10 text-amber-400 shrink-0">
-                                <Star className="w-3 h-3 fill-amber-400" />
-                                {Math.round(scheme.relevance_score * 100)}%
+                            {/* Smart Match Score */}
+                            {scheme.match_percentage > 0 && (
+                              <div className="flex flex-col items-end gap-1">
+                                <div className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg bg-amber-500/10 text-amber-400 shrink-0">
+                                  <Star className="w-3 h-3 fill-amber-400" />
+                                  {scheme.match_percentage}% Match
+                                </div>
+                                {scheme.semantic_similarity > 0 && (
+                                  <span className="text-[9px] text-muted-foreground">
+                                    Semantic: {scheme.semantic_similarity}%
+                                  </span>
+                                )}
                               </div>
                             )}
                           </div>
@@ -1497,33 +1605,47 @@ const UploadPage = () => {
                 </AnimatePresence>
               </GlassCard>
 
-              {/* Send Summary to Phone (SMS) — disabled via feature flag */}
-              {/* To enable: set SMS_ENABLED=true in backend .env */}
-              {false && analysisResult && (
+              {/* Send Summary to Phone (SMS) */}
+              {/* Note: Also set SMS_ENABLED=true in backend .env */}
+              {analysisResult && (
                 <GlassCard delay={0.48}>
                   <h3 className="font-display font-bold text-lg mb-4 text-foreground flex items-center gap-2">
                     <MessageCircle className="w-5 h-5 text-primary" />
                     {t("sms.title")}
                   </h3>
                   <p className="text-xs text-muted-foreground mb-4">
-                    Get a text message summary of your report on your phone. Useful for sharing with family or your doctor.
+                    Get a 3-4 line summary of your report via SMS. Useful for sharing with family or your doctor.
                   </p>
+                  
+                  {/* Privacy Notice */}
+                  <div className="mb-4 p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-start gap-2">
+                    <Shield className="w-3.5 h-3.5 text-emerald-400 mt-0.5 flex-shrink-0" />
+                    <p className="text-[10px] text-emerald-300 leading-relaxed">
+                      <span className="font-semibold">Privacy First:</span> We do not store your phone number. 
+                      Your number is used only to send this SMS and is immediately deleted from our system.
+                    </p>
+                  </div>
+
                   <div className="flex flex-col sm:flex-row gap-3">
                     <input
                       type="tel"
                       value={smsPhone}
                       onChange={(e) => {
-                        setSmsPhone(e.target.value);
+                        // Allow +91 prefix or just 10 digits
+                        const value = e.target.value.replace(/[^0-9+]/g, '');
+                        setSmsPhone(value);
                         setSmsSent(false);
                       }}
-                      placeholder="+91XXXXXXXXXX"
-                      maxLength={13}
+                      placeholder="9876543210 or +919876543210"
+                      maxLength={15}
                       className="flex-1 glass-card bg-secondary px-4 py-2.5 rounded-xl text-sm text-foreground border-none outline-none"
                     />
                     <button
                       onClick={async () => {
-                        if (!uploadResponse || !smsPhone.match(/^\+91\d{10}$/)) {
-                          setError("Please enter a valid Indian phone number (+91XXXXXXXXXX).");
+                        // Validate Indian phone number (10 digits starting with 6-9)
+                        const phoneRegex = /^(\+91|91)?[6-9]\d{9}$/;
+                        if (!uploadResponse || !phoneRegex.test(smsPhone)) {
+                          setError("Please enter a valid Indian mobile number (10 digits starting with 6-9).");
                           return;
                         }
                         setSmsLoading(true);
@@ -1536,6 +1658,7 @@ const UploadPage = () => {
                           );
                           if (res.success) {
                             setSmsSent(true);
+                            setSmsPhone(""); // Clear phone number after successful send
                           } else {
                             setError(res.message || "SMS failed.");
                           }
@@ -1654,6 +1777,66 @@ const UploadPage = () => {
           )}
         </div>
       </main>
+
+      {/* Privacy Modal */}
+      <Dialog open={showPrivacyModal} onOpenChange={setShowPrivacyModal}>
+        <DialogContent className="sm:max-w-md bg-background border-border">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-foreground">
+              <Shield className="w-5 h-5 text-emerald-400" />
+              Privacy & Data Protection
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              How we protect your personal information
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+              <h4 className="text-sm font-medium text-emerald-300 mb-1 flex items-center gap-2">
+                <Shield className="w-4 h-4" />
+                PII Anonymization
+              </h4>
+              <p className="text-xs text-emerald-200/80">
+                All personally identifiable information (names, phone numbers, addresses) is automatically 
+                detected and anonymized before AI processing. Your identity remains protected.
+              </p>
+            </div>
+            
+            <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+              <h4 className="text-sm font-medium text-blue-300 mb-1 flex items-center gap-2">
+                <Eye className="w-4 h-4" />
+                Temporary Storage Only
+              </h4>
+              <p className="text-xs text-blue-200/80">
+                Your uploaded documents are stored only during processing (maximum 24 hours) and are 
+                automatically deleted afterward. We do not retain your medical records.
+              </p>
+            </div>
+            
+            <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
+              <h4 className="text-sm font-medium text-purple-300 mb-1 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4" />
+                Identifiers Removed
+              </h4>
+              <p className="text-xs text-purple-200/80">
+                We automatically remove: patient names, doctor names, hospital names, phone numbers, 
+                email addresses, Aadhaar numbers, and other identifiers from the text sent to AI models.
+              </p>
+            </div>
+            
+            <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+              <h4 className="text-sm font-medium text-amber-300 mb-1 flex items-center gap-2">
+                <Info className="w-4 h-4" />
+                No Data Selling
+              </h4>
+              <p className="text-xs text-amber-200/80">
+                We never sell, share, or use your medical data for any purpose other than generating 
+                your report analysis. Your data is yours alone.
+              </p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <DisclaimerBar />
     </div>

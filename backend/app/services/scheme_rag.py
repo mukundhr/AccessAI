@@ -241,6 +241,233 @@ class SchemeRAGService:
 
     # ---- retrieval ----
 
+    def _calculate_scheme_score(
+        self,
+        scheme: Dict[str, Any],
+        state: str = "",
+        income_range: str = "",
+        age: int = 0,
+        is_bpl: bool = False,
+        conditions: Optional[List[str]] = None,
+        semantic_score: float = 0.0,
+    ) -> tuple[float, List[Dict[str, Any]], str]:
+        """
+        Calculate smart scheme matching score using weighted formula.
+        
+        Score formula:
+        40 State match
+        + 30 Income match  
+        + 20 Category/condition match
+        + 10 Semantic similarity
+        
+        Returns: (total_score, match_factors, match_reason)
+        """
+        match_factors = []
+        total_score = 0.0
+        reasons = []
+        
+        # 1. State Match (40 points)
+        state_norm = state.lower().replace(" ", "_") if state else ""
+        scheme_state = scheme.get("state", "").lower()
+        
+        if state_norm and (scheme_state == "all_india" or scheme_state == state_norm):
+            total_score += 40
+            match_factors.append({
+                "factor": "State Match",
+                "matched": True,
+                "detail": f"Scheme available in {state or 'All India'}"
+            })
+            reasons.append(f"Available in your state ({state})")
+        else:
+            match_factors.append({
+                "factor": "State Match",
+                "matched": False,
+                "detail": f"Scheme not available in {state}"
+            })
+        
+        # 2. Income Match (30 points)
+        income_criteria = scheme.get("income_criteria", "").lower()
+        income_matched = False
+        income_detail = ""
+        
+        if is_bpl:
+            # BPL card holders get max income points
+            if "bpl" in income_criteria or "below poverty" in income_criteria or "no income" in income_criteria:
+                total_score += 30
+                income_matched = True
+                income_detail = "BPL card holders eligible"
+                reasons.append("Covers BPL families")
+            elif income_criteria and ("income" in income_criteria or "annual" in income_criteria):
+                total_score += 25  # Partial match - has income criteria
+                income_matched = True
+                income_detail = f"Income criteria: {income_criteria[:50]}"
+                reasons.append("Income-based eligibility")
+        elif income_range:
+            # Parse income range and check eligibility
+            income_num = self._parse_income_range(income_range)
+            if income_num > 0:
+                scheme_limit = self._extract_income_limit(income_criteria)
+                if scheme_limit > 0 and income_num <= scheme_limit:
+                    total_score += 30
+                    income_matched = True
+                    income_detail = f"Your income (₹{income_num/100000:.1f}L) within limit"
+                    reasons.append(f"Income within ₹{scheme_limit/100000:.1f}L limit")
+                elif scheme_limit > 0:
+                    total_score += 10  # Partial - has criteria but may not match
+                    income_matched = True
+                    income_detail = f"Scheme limit: ₹{scheme_limit/100000:.1f}L"
+                elif "no income" in income_criteria or "all" in income_criteria or "universal" in income_criteria:
+                    total_score += 30
+                    income_matched = True
+                    income_detail = "No income restrictions"
+                    reasons.append("No income restrictions")
+        
+        if not income_matched and (not income_criteria or "all" in income_criteria):
+            total_score += 30  # Universal schemes
+            income_matched = True
+            income_detail = "Universal coverage - no income check"
+        
+        match_factors.append({
+            "factor": "Income Match",
+            "matched": income_matched,
+            "detail": income_detail or ("No specific income criteria" if not income_criteria else "Check eligibility")
+        })
+        
+        # 3. Category/Condition Match (20 points)
+        conditions_matched = False
+        conditions_detail = ""
+        scheme_conditions = scheme.get("conditions_covered", [])
+        
+        if conditions and scheme_conditions:
+            # Check for condition overlap
+            conditions_lower = [c.lower() for c in conditions]
+            matches = sum(1 for sc in scheme_conditions if any(c in sc.lower() for c in conditions_lower))
+            if matches > 0:
+                match_ratio = min(matches / len(conditions), 1.0)
+                total_score += int(20 * match_ratio)
+                conditions_matched = True
+                conditions_detail = f"Covers {matches} of your conditions"
+                reasons.append(f"Covers relevant medical conditions")
+            else:
+                # Check scheme type match
+                scheme_type = scheme.get("type", "").lower()
+                for condition in conditions_lower:
+                    if condition in scheme_type or any(c in scheme_type for c in ["health", "medical", "treatment"]):
+                        total_score += 15
+                        conditions_matched = True
+                        conditions_detail = f"{scheme.get('type', 'Health')} scheme"
+                        reasons.append(f"{scheme.get('type', 'Health')} coverage")
+                        break
+        elif age:
+            # Age-based category matching
+            scheme_eligibility = " ".join(scheme.get("eligibility", [])).lower()
+            if age >= 60 and ("senior" in scheme_eligibility or "elderly" in scheme_eligibility or "old age" in scheme_eligibility):
+                total_score += 20
+                conditions_matched = True
+                conditions_detail = "Senior citizen benefits"
+                reasons.append("Senior citizen scheme")
+            elif age < 18 and ("child" in scheme_eligibility or "student" in scheme_eligibility or "paediatric" in scheme_eligibility):
+                total_score += 20
+                conditions_matched = True
+                conditions_detail = "Child/Student benefits"
+                reasons.append("Children/student scheme")
+            elif "women" in scheme_eligibility and age >= 18:
+                total_score += 15
+                conditions_matched = True
+                conditions_detail = "Women-focused scheme"
+        
+        if not conditions_matched:
+            # Generic health scheme gets partial points
+            if scheme.get("type", "").lower() in ["health", "insurance", "medical"]:
+                total_score += 10
+                conditions_matched = True
+                conditions_detail = "General health coverage"
+        
+        match_factors.append({
+            "factor": "Category Match",
+            "matched": conditions_matched,
+            "detail": conditions_detail or "General eligibility criteria"
+        })
+        
+        # 4. Semantic Similarity (10 points)
+        semantic_points = min(10.0, semantic_score * 10)  # Normalize to 0-10
+        total_score += semantic_points
+        if semantic_score > 0.5:
+            match_factors.append({
+                "factor": "Semantic Match",
+                "matched": True,
+                "detail": f"High relevance ({semantic_score:.0%})"
+            })
+        else:
+            match_factors.append({
+                "factor": "Semantic Match",
+                "matched": semantic_score > 0.2,
+                "detail": f"Content relevance: {semantic_score:.0%}"
+            })
+        
+        # Build match reason
+        if reasons:
+            match_reason = f"Recommended because: {', '.join(reasons[:3])}."
+        else:
+            match_reason = "General government health scheme"
+        
+        return total_score, match_factors, match_reason
+    
+    def _parse_income_range(self, income_range: str) -> float:
+        """Parse income range string to numeric value (annual in rupees)."""
+        income_lower = income_range.lower()
+        
+        # Handle different formats
+        if "below-1l" in income_lower or "<1l" in income_lower:
+            return 100000
+        elif "1l-3l" in income_lower or "1-3l" in income_lower:
+            return 200000
+        elif "3l-5l" in income_lower or "3-5l" in income_lower:
+            return 400000
+        elif "5l-8l" in income_lower or "5-8l" in income_lower:
+            return 650000
+        elif "above-8l" in income_lower or ">8l" in income_lower:
+            return 1000000
+        elif "bpl" in income_lower:
+            return 0  # Below poverty line
+        
+        # Try to extract number
+        import re
+        match = re.search(r'(\d+(?:\.\d+)?)', income_lower)
+        if match:
+            num = float(match.group(1))
+            if "l" in income_lower or "lakh" in income_lower:
+                return num * 100000
+            elif "k" in income_lower or "thousand" in income_lower:
+                return num * 1000
+        
+        return -1  # Unknown
+    
+    def _extract_income_limit(self, income_criteria: str) -> float:
+        """Extract income limit from criteria text."""
+        import re
+        
+        # Look for patterns like "below 5 lakh", "up to 3 lakhs", "less than 2.5L"
+        patterns = [
+            r'(?:below|under|up to|less than|maximum|max)\s*[₹\s]*([\d.]+)\s*(lakh|l|lac)',
+            r'([\d.]+)\s*(lakh|l|lac)\s*(?:and?\s*above|maximum|limit)',
+            r'annual\s*income\s*(?:up to|below)\s*[₹\s]*([\d.]+)\s*(lakh|l|lac)',
+        ]
+        
+        text_lower = income_criteria.lower()
+        for pattern in patterns:
+            match = re.search(pattern, text_lower)
+            if match:
+                num = float(match.group(1))
+                return num * 100000
+        
+        # Try to find just a number with lakh
+        match = re.search(r'([\d.]+)\s*(?:lakh|l|lac)', text_lower)
+        if match:
+            return float(match.group(1)) * 100000
+        
+        return -1  # Not found
+
     def retrieve(
         self,
         *,
@@ -253,9 +480,99 @@ class SchemeRAGService:
         top_k: int = 10,
     ) -> List[Dict[str, Any]]:
         """
-        Retrieve the most relevant schemes for the user's profile.
+        Retrieve the most relevant schemes for the user's profile using smart scoring.
 
-        Returns a list of scheme dicts augmented with a `relevance_score`.
+        Returns a ranked list of scheme dicts with scores, match factors, and explanations.
+        """
+        if not self._initialised:
+            self.initialise()
+
+        # Build a rich query string from all available context
+        query_parts: List[str] = []
+
+        if state:
+            query_parts.append(f"state {state}")
+        if income_range:
+            query_parts.append(f"income {income_range}")
+        if is_bpl:
+            query_parts.append("BPL below poverty line")
+        if age:
+            if age >= 60:
+                query_parts.append("elderly senior citizen old age geriatric")
+            elif age < 18:
+                query_parts.append("child children paediatric school student")
+            query_parts.append(f"age {age}")
+        if conditions:
+            query_parts.extend(conditions)
+        if medical_text:
+            # Extract meaningful medical keywords from OCR text
+            query_parts.append(self._extract_medical_keywords(medical_text))
+
+        query = " ".join(query_parts)
+        
+        # Get semantic scores from embedding index
+        semantic_scores = {}
+        if query.strip() and self._index._built:
+            results = self._index.query(query, top_k=min(len(self._schemes), 50))
+            for doc_idx, score in results:
+                semantic_scores[doc_idx] = score
+
+        # Score all schemes
+        scored_schemes = []
+        for idx, scheme in enumerate(self._schemes):
+            semantic_score = semantic_scores.get(idx, 0.0)
+            
+            total_score, match_factors, match_reason = self._calculate_scheme_score(
+                scheme,
+                state=state,
+                income_range=income_range,
+                age=age,
+                is_bpl=is_bpl,
+                conditions=conditions,
+                semantic_score=semantic_score,
+            )
+            
+            scored_schemes.append({
+                "scheme": scheme,
+                "score": total_score,
+                "match_factors": match_factors,
+                "match_reason": match_reason,
+                "semantic_score": semantic_score,
+            })
+        
+        # Sort by score descending
+        scored_schemes.sort(key=lambda x: x["score"], reverse=True)
+        
+        # Return top_k with full details
+        results = []
+        for item in scored_schemes[:top_k]:
+            scheme = item["scheme"]
+            results.append({
+                **scheme,
+                "relevance_score": item["score"] / 100,  # Normalize to 0-1
+                "match_score": round(item["score"]),
+                "match_percentage": min(100, round(item["score"])),
+                "match_reason": item["match_reason"],
+                "match_factors": item["match_factors"],
+                "semantic_similarity": round(item["semantic_score"] * 100, 1),
+            })
+        
+        return results
+
+    def retrieve_legacy(
+        self,
+        *,
+        state: str = "",
+        income_range: str = "",
+        age: int = 0,
+        is_bpl: bool = False,
+        conditions: Optional[List[str]] = None,
+        medical_text: str = "",
+        top_k: int = 10,
+    ) -> List[Dict[str, Any]]:
+        """
+        Legacy retrieval method (kept for backward compatibility).
+        Uses TF-IDF retrieval with post-filtering.
         """
         if not self._initialised:
             self.initialise()

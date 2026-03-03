@@ -242,6 +242,9 @@ class SchemeInfo(BaseModel):
     apply_link: Optional[str] = None
     helpline: str = ""
     relevance_score: float = 0
+    match_score: int = 0  # 0-100 smart matching score
+    match_percentage: int = 0  # Display percentage for UI
+    semantic_similarity: float = 0  # Semantic match percentage
     action_steps: List[str] = []
     conditions_covered: List[str] = []
 
@@ -274,7 +277,12 @@ class AudioResponse(BaseModel):
 
 class SMSRequest(BaseModel):
     session_id: str
-    phone_number: str = Field(..., pattern=r"^\+91\d{10}$", description="Indian phone number with +91 prefix")
+    phone_number: str = Field(
+        ..., 
+        min_length=10,
+        max_length=15,
+        description="Indian phone number (10 digits, or with +91/91 prefix)"
+    )
     include_schemes: bool = False
     language: Language = Language.ENGLISH
 

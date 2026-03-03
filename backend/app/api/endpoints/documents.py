@@ -111,6 +111,8 @@ async def _cleanup_s3_document(session_id: str):
     Healthcare data should not persist in cloud storage longer than necessary.
     The file is only stored in S3 transiently so that AWS Textract can read it;
     once OCR is complete the object is removed and the S3 reference is cleared.
+    
+    Note: S3 bucket also has lifecycle policy for auto-delete after 1 day as backup.
     """
     session_data = sessions_store.get(session_id)
     s3_info = session_data.get("s3_info") if session_data else None
@@ -118,17 +120,16 @@ async def _cleanup_s3_document(session_id: str):
         return
 
     try:
-        await aws_service.delete_document(s3_info["s3_key"])
+        await aws_service.delete_document(s3_info["s3_key"], session_id=session_id)
         # Clear the S3 reference so no stale pointer remains in the session
         sessions_store.update(session_id, {"s3_info": None})
-        logger.info(
-            f"[Privacy] S3 object deleted for session {session_id}: "
-            f"s3://{s3_info['bucket']}/{s3_info['s3_key']}"
-        )
+        # Privacy: Only log session ID, not the S3 path
+        logger.info(f"[Privacy] S3 cleanup complete for session {session_id}")
     except Exception as e:
+        # Privacy: Don't include S3 path in error logs
         logger.error(
-            f"[Privacy] Failed to delete S3 object for session {session_id}: {e}. "
-            "Manual cleanup may be required."
+            f"[Privacy] S3 cleanup failed for session {session_id}. "
+            "Lifecycle policy will auto-delete after 1 day."
         )
 
 

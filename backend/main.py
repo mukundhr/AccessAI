@@ -47,15 +47,42 @@ CORS_ORIGINS = [
     "http://localhost:5173",
     "http://localhost:3000",
     "http://127.0.0.1:5173",
+    "http://127.0.0.1:3000",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    # Allow any localhost port for development
+    "http://localhost",
+    "http://127.0.0.1",
 ]
+
+# In development, allow all origins
+if config.settings.ENVIRONMENT == "development":
+    CORS_ORIGINS = ["*"]
+
+# Add any additional origins from environment
+if config.settings.CORS_ORIGINS:
+    CORS_ORIGINS.extend(config.settings.CORS_ORIGINS)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=600,  # Cache preflight for 10 minutes
 )
+
+
+# Global exception handler for better error messages
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    from fastapi.responses import JSONResponse
+    logger.error(f"Global error: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc)}
+    )
 
 # Include routers
 app.include_router(

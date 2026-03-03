@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+@router.post("/sms-summary", response_model=SMSResponse)
 @router.post("/send-summary", response_model=SMSResponse)
 async def send_summary_sms(request: SMSRequest):
     """

@@ -311,15 +311,17 @@ class OCRService:
         self, textract_client, s3_info: Dict[str, str],
     ) -> Dict[str, Any]:
         """
-        Extract text from multi-page PDFs using Textract async API.
+        Extract text from multi-page PDFs using Textract async API with enhanced error handling.
 
         Uses StartDocumentAnalysis (reads from S3) then polls
         GetDocumentAnalysis until the job completes.
         """
         bucket = s3_info["bucket"]
         s3_key = s3_info["s3_key"]
+        job_id = None
 
-        logger.info(f"Starting async Textract for s3://{bucket}/{s3_key}")
+        # Privacy: Don't log the S3 key
+        logger.info("Starting async Textract job")
 
         try:
             start_resp = textract_client.start_document_analysis(
@@ -329,15 +331,25 @@ class OCRService:
                 FeatureTypes=["TABLES", "FORMS"],
             )
             job_id = start_resp["JobId"]
-            logger.info(f"Textract job started: {job_id}")
+        except textract_client.exceptions.InvalidS3ObjectException as e:
+            logger.error(f"Textract: Invalid S3 object - {type(e).__name__}")
+            raise RuntimeError("Document not accessible for processing. Please try uploading again.")
+        except textract_client.exceptions.UnsupportedDocumentException as e:
+            logger.error(f"Textract: Unsupported document format - {type(e).__name__}")
+            raise RuntimeError("Document format not supported. Please upload PDF or image files only.")
+        except textract_client.exceptions.DocumentTooLargeException as e:
+            logger.error(f"Textract: Document too large - {type(e).__name__}")
+            raise RuntimeError("Document is too large. Maximum size is 10MB.")
         except Exception as e:
-            logger.error(f"StartDocumentAnalysis failed: {e}")
-            raise
+            logger.error(f"Textract StartDocumentAnalysis failed: {type(e).__name__}")
+            raise RuntimeError("Failed to start document analysis. Please try again.")
 
         # Poll for completion (max ~5 minutes)
         max_wait = 300  # seconds
         poll_interval = 3  # seconds
         elapsed = 0
+        consecutive_errors = 0
+        max_consecutive_errors = 3
 
         while elapsed < max_wait:
             await asyncio.sleep(poll_interval)
@@ -345,20 +357,42 @@ class OCRService:
 
             try:
                 status_resp = textract_client.get_document_analysis(JobId=job_id)
+                consecutive_errors = 0  # Reset error counter on success
+            except textract_client.exceptions.InvalidJobIdException as e:
+                logger.error(f"Textract: Invalid job ID - {type(e).__name__}")
+                raise RuntimeError("Analysis session expired. Please upload again.")
             except Exception as e:
-                logger.error(f"GetDocumentAnalysis failed: {e}")
-                raise
+                consecutive_errors += 1
+                logger.warning(f"Textract status check failed ({consecutive_errors}/{max_consecutive_errors}): {type(e).__name__}")
+                if consecutive_errors >= max_consecutive_errors:
+                    raise RuntimeError("Analysis status check failed repeatedly. Please try again.")
+                continue  # Retry on transient errors
 
             status = status_resp["JobStatus"]
             if status == "SUCCEEDED":
+                logger.info(f"Textract job completed successfully in {elapsed}s")
                 break
             elif status == "FAILED":
                 msg = status_resp.get("StatusMessage", "Unknown error")
-                raise RuntimeError(f"Textract job failed: {msg}")
-            # IN_PROGRESS — keep polling
+                logger.error(f"Textract job failed: {msg}")
+                # Provide user-friendly error messages
+                if "unsupported" in msg.lower():
+                    raise RuntimeError("Document format not supported. Please upload a clear PDF or image.")
+                elif "empty" in msg.lower() or "blank" in msg.lower():
+                    raise RuntimeError("Document appears to be blank or unreadable. Please upload a clearer image.")
+                elif "too large" in msg.lower():
+                    raise RuntimeError("Document is too large. Maximum size is 10MB.")
+                else:
+                    raise RuntimeError(f"Document analysis failed: {msg}")
+            elif status == "PARTIAL_SUCCESS":
+                logger.warning("Textract job completed with partial success")
+                break
+            # IN_PROGRESS or PARTIAL_SUCCESS — keep polling
         else:
+            logger.error(f"Textract job timed out after {max_wait}s")
             raise RuntimeError(
-                f"Textract job {job_id} timed out after {max_wait}s"
+                "Document analysis timed out. The document may be too large or complex. "
+                "Try uploading a clearer, smaller file."
             )
 
         # Collect all pages of results (paginated)
