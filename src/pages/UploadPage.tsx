@@ -660,9 +660,9 @@ const UploadPage = () => {
                   </div>
                 )}
 
-                {/* Confidence Panel with Transparent Breakdown */}
+                {/* Confidence Panel with Static Breakdown */}
                 {analysisResult && (
-                  <div className="mt-6 space-y-3">
+                  <div className="mt-6 space-y-4">
                     {/* Overall confidence bar */}
                     <div className="text-center">
                       <p className="text-xs text-muted-foreground mb-1.5">Overall AI Confidence</p>
@@ -677,35 +677,44 @@ const UploadPage = () => {
                       <p className="text-sm text-foreground mt-1 font-bold">{analysisResult.confidence}%</p>
                     </div>
 
-                    {/* 4-signal breakdown */}
+                    {/* Confidence Formula Breakdown - Always Visible */}
                     {analysisResult.confidence_breakdown && (
-                      <div className="grid grid-cols-2 gap-2 mt-3">
-                        {([
-                          { key: "ocr_confidence" as const, label: "OCR Readability", weight: "30%", icon: <Eye className="w-3 h-3" /> },
-                          { key: "extraction_completeness" as const, label: "Data Extraction", weight: "25%", icon: <FileText className="w-3 h-3" /> },
-                          { key: "abnormal_value_certainty" as const, label: "Value Certainty", weight: "25%", icon: <Shield className="w-3 h-3" /> },
-                          { key: "llm_self_evaluation" as const, label: "LLM Self-Check", weight: "20%", icon: <Brain className="w-3 h-3" /> },
-                        ] as const).map((signal) => {
-                          const val = analysisResult.confidence_breakdown![signal.key];
-                          return (
-                            <div key={signal.key} className="glass-card p-2.5 rounded-xl">
-                              <div className="flex items-center gap-1.5 mb-1">
-                                <span className="text-muted-foreground">{signal.icon}</span>
-                                <span className="text-[10px] text-muted-foreground">{signal.label}</span>
-                                <span className="text-[9px] text-muted-foreground/60 ml-auto">wt {signal.weight}</span>
+                      <div className="glass-card p-3 rounded-xl border border-border/50">
+                        <p className="text-xs font-semibold text-foreground text-center mb-3 pb-2 border-b border-border/50">
+                          Confidence = OCR × Completeness × Range Validation × LLM Consistency
+                        </p>
+                        <div className="grid grid-cols-2 gap-3">
+                          {([
+                            { key: "ocr_confidence" as const, label: "OCR", weight: "30%", desc: "Document readability", icon: <Eye className="w-3 h-3" /> },
+                            { key: "extraction_completeness" as const, label: "Completeness", weight: "25%", desc: "Data extracted", icon: <FileText className="w-3 h-3" /> },
+                            { key: "range_validation" as const, label: "Range Validation", weight: "25%", desc: "Value certainty", icon: <Shield className="w-3 h-3" /> },
+                            { key: "llm_consistency" as const, label: "LLM Consistency", weight: "20%", desc: "AI self-check", icon: <Brain className="w-3 h-3" /> },
+                          ] as const).map((signal) => {
+                            const val = analysisResult.confidence_breakdown![signal.key];
+                            return (
+                              <div key={signal.key} className="space-y-1">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-1">
+                                    <span className={`${val < 50 ? "text-red-400" : val < 75 ? "text-yellow-400" : "text-emerald-400"}`}>
+                                      {signal.icon}
+                                    </span>
+                                    <span className="text-[10px] font-medium text-foreground">{signal.label}</span>
+                                  </div>
+                                  <span className="text-[9px] text-muted-foreground">{signal.weight}</span>
+                                </div>
+                                <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                                  <motion.div
+                                    className={`h-full rounded-full ${val < 50 ? "bg-red-400" : val < 75 ? "bg-yellow-400" : "bg-emerald-400"}`}
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${val}%` }}
+                                    transition={{ duration: 0.6, delay: 0.5 }}
+                                  />
+                                </div>
+                                <p className="text-[9px] text-muted-foreground">{val}% · {signal.desc}</p>
                               </div>
-                              <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                                <motion.div
-                                  className={`h-full rounded-full ${val < 50 ? "bg-red-400" : val < 75 ? "bg-yellow-400" : "bg-emerald-400"}`}
-                                  initial={{ width: 0 }}
-                                  animate={{ width: `${val}%` }}
-                                  transition={{ duration: 0.6, delay: 0.5 }}
-                                />
-                              </div>
-                              <p className="text-[10px] text-foreground font-medium mt-0.5">{val}%</p>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
 

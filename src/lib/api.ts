@@ -48,10 +48,14 @@ export interface EmergencyInfo {
 }
 
 export interface ConfidenceBreakdown {
+  /** Document clarity & text recognition quality (30% weight) */
   ocr_confidence: number;
+  /** Amount of test data successfully extracted (25% weight) */
   extraction_completeness: number;
-  abnormal_value_certainty: number;
-  llm_self_evaluation: number;
+  /** Certainty of abnormal value detection vs clinical ranges (25% weight) */
+  range_validation: number;
+  /** AI self-assessment of analysis reliability (20% weight) */
+  llm_consistency: number;
 }
 
 // ── Clinical Reasoning (machine-derived inference) ──

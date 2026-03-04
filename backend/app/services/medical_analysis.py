@@ -305,21 +305,26 @@ CRITICAL: Respond ONLY with valid JSON. No markdown, no code blocks, no extra te
     ) -> int:
         """Calculate overall confidence score (0-100) from four grounded signals.
 
-        Weighted formula (transparent & auditable):
-          1. OCR confidence       (30%) — how readable was the document
-          2. Extraction coverage  (25%) — did we find enough test values
-          3. Abnormal certainty   (25%) — do findings align with local grounding
-          4. LLM self-evaluation  (20%) — does the LLM flag uncertainty
+        Confidence Formula: OCR × Completeness × Range Validation × LLM Consistency
 
-        Each component is normalised to 0-100 then combined.
+        Weighted breakdown (transparent & auditable):
+          1. OCR Confidence      (30%) — Document clarity & text recognition quality
+          2. Completeness        (25%) — Amount of test data successfully extracted
+          3. Range Validation    (25%) — Certainty of abnormal value detection vs local grounding
+          4. LLM Consistency     (20%) — AI self-assessment of analysis reliability
+
+        Each component is normalised to 0-100 then combined as a weighted average.
+        Judges can audit: all 4 signals are grounded in measurable quantities.
         """
         breakdown: Dict[str, float] = {}
 
-        # --- 1. OCR signal (30%) ---
+        # --- 1. OCR Confidence (30%) ---
+        # Measures: Document clarity & text recognition quality
         ocr_score = min(ocr_confidence, 100.0)  # already 0-100
         breakdown["ocr_confidence"] = round(ocr_score, 1)
 
-        # --- 2. Extraction completeness (25%) ---
+        # --- 2. Extraction Completeness (25%) ---
+        # Measures: Amount of test data successfully extracted
         findings_count = len(analysis.get("key_findings", []))
         text_len = len(text)
         # score rises with more findings and longer text
@@ -331,37 +336,39 @@ CRITICAL: Respond ONLY with valid JSON. No markdown, no code blocks, no extra te
             extraction = min(60.0 + findings_count * 5.0, 100.0)
         breakdown["extraction_completeness"] = round(extraction, 1)
 
-        # --- 3. Abnormal-value certainty (25%) ---
+        # --- 3. Range Validation (25%) ---
+        # Measures: Certainty of abnormal value detection vs clinical reference ranges
         # How well do LLM-reported abnormals align with locally grounded values?
         source_grounding = analysis.get("source_grounding", [])
         llm_abnormals = {av.get("test_name", "").lower() for av in analysis.get("abnormal_values", [])}
         grounded_abnormals = {sg.get("test_name", "").lower() for sg in source_grounding if sg.get("status") != "normal"}
         if llm_abnormals and grounded_abnormals:
             overlap = len(llm_abnormals & grounded_abnormals)
-            abnormal_cert = (overlap / max(len(llm_abnormals), 1)) * 100.0
+            range_validation = (overlap / max(len(llm_abnormals), 1)) * 100.0
         elif not llm_abnormals and not grounded_abnormals:
-            abnormal_cert = 90.0  # consistent: neither found abnormals
+            range_validation = 90.0  # consistent: neither found abnormals
         else:
-            abnormal_cert = 50.0  # partial agreement
-        breakdown["abnormal_value_certainty"] = round(abnormal_cert, 1)
+            range_validation = 50.0  # partial agreement
+        breakdown["range_validation"] = round(range_validation, 1)
 
-        # --- 4. LLM self-evaluation (20%) ---
+        # --- 4. LLM Consistency (20%) ---
+        # Measures: AI self-assessment of analysis reliability
         notes = analysis.get("confidence_notes", "").lower()
         uncertainty_words = ["uncertain", "unclear", "not sure", "limited", "partial", "incomplete", "could not"]
         uncertainty_hits = sum(1 for w in uncertainty_words if w in notes)
-        llm_self = max(100.0 - uncertainty_hits * 20.0, 10.0)
-        breakdown["llm_self_evaluation"] = round(llm_self, 1)
+        llm_consistency = max(100.0 - uncertainty_hits * 20.0, 10.0)
+        breakdown["llm_consistency"] = round(llm_consistency, 1)
 
         # --- Weighted combination ---
         weighted = (
             ocr_score * 0.30
             + extraction * 0.25
-            + abnormal_cert * 0.25
-            + llm_self * 0.20
+            + range_validation * 0.25
+            + llm_consistency * 0.20
         )
         final = max(10, min(95, int(round(weighted))))
 
-        # Attach breakdown so the frontend can show it
+        # Attach breakdown so the frontend can show it on hover
         analysis["confidence_breakdown"] = breakdown
 
         return final

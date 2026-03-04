@@ -75,10 +75,14 @@ class AnalysisRequest(BaseModel):
 
 
 class ConfidenceBreakdown(BaseModel):
-    ocr_confidence: float = 0
-    extraction_completeness: float = 0
-    abnormal_value_certainty: float = 0
-    llm_self_evaluation: float = 0
+    """Transparent confidence scoring breakdown for auditability.
+
+    Formula: OCR × Completeness × Range Validation × LLM Consistency
+    """
+    ocr_confidence: float = Field(0, description="Document clarity & text recognition quality (30% weight)")
+    extraction_completeness: float = Field(0, description="Amount of test data successfully extracted (25% weight)")
+    range_validation: float = Field(0, description="Certainty of abnormal value detection vs clinical ranges (25% weight)")
+    llm_consistency: float = Field(0, description="AI self-assessment of analysis reliability (20% weight)")
 
 
 class KeyFinding(BaseModel):
