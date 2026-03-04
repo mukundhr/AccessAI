@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { 
   FileUp, Brain, MessageSquareText, Volume2, Landmark, 
-  ShieldCheck, Languages, Zap, Heart, Users, Target 
+  ShieldCheck, Languages, Zap, Heart, Users, Target, User
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -10,10 +10,9 @@ import GlassCard from "@/components/GlassCard";
 
 const About = () => {
   const team = [
-    { name: "Healthcare Experts", role: "Medical Review", icon: Heart },
-    { name: "AI Engineers", role: "Technology", icon: Brain },
-    { name: "Accessibility Specialists", role: "UX Design", icon: Users },
-    { name: "Localization Team", role: "Languages", icon: Languages },
+    { name: "Arun Arya", role: "Team Leader & Tester", description: "Arun leads the team with clear vision and coordination. He also ensures the quality and performance of our project through thorough testing.", icon: User },
+    { name: "Mukundh Reddy", role: "Core Designer & Backend Developer", description: "Mukundh is responsible for designing the core system architecture and implementing the backend functionality that powers our application.", icon: User },
+    { name: "Chandan Hegde", role: "Frontend Developer & Designer", description: "Chandan handles the frontend implementation and design, creating an intuitive and engaging user experience.", icon: User },
   ];
 
   const stats = [
@@ -38,11 +37,13 @@ const About = () => {
             className="text-center max-w-3xl mx-auto"
           >
             <h1 className="font-display font-bold text-3xl sm:text-5xl lg:text-6xl leading-tight mb-6">
-              About <span className="gradient-text">AccessAI</span>
+              About <span className="gradient-text">Us</span>
             </h1>
+            <h2 className="text-xl sm:text-2xl font-semibold mb-4">Welcome to AccessAI</h2>
             <p className="text-lg sm:text-xl text-muted-foreground leading-relaxed">
-              We're on a mission to make healthcare information accessible to everyone, 
-              regardless of their language, education level, or technical expertise.
+              We are a passionate team working together to build innovative AI-powered solutions 
+              that can make a positive impact. Our goal is to leverage AWS technologies and 
+              artificial intelligence to create smart, scalable, and user-friendly applications.
             </p>
           </motion.div>
         </div>
@@ -181,12 +182,15 @@ const About = () => {
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
-            className="font-display text-2xl sm:text-3xl font-bold text-center mb-12"
+            className="font-display text-2xl sm:text-3xl font-bold text-center mb-4"
           >
             Our <span className="gradient-text">Team</span>
           </motion.h2>
+          <p className="text-center text-muted-foreground mb-12 max-w-2xl mx-auto">
+            Meet the passionate individuals behind AccessAI
+          </p>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
             {team.map((member, i) => (
               <motion.div
                 key={member.name}
@@ -195,12 +199,13 @@ const About = () => {
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1 }}
               >
-                <GlassCard className="text-center p-6">
+                <GlassCard className="text-center p-6 h-full">
                   <div className="w-14 h-14 rounded-full gradient-bg flex items-center justify-center mx-auto mb-4">
                     <member.icon className="w-7 h-7 text-primary-foreground" />
                   </div>
                   <h3 className="font-display font-semibold text-foreground">{member.name}</h3>
-                  <p className="text-sm text-muted-foreground">{member.role}</p>
+                  <p className="text-sm text-primary font-medium mb-3">{member.role}</p>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{member.description}</p>
                 </GlassCard>
               </motion.div>
             ))}
