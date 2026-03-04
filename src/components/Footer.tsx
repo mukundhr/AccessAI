@@ -21,7 +21,7 @@ const Footer = () => {
             <Link to="/about" className="hover:text-foreground transition-colors">{t("footer.about")}</Link>
             <Link to="/privacy" className="hover:text-foreground transition-colors">{t("footer.privacy")}</Link>
             <Link to="/disclaimer" className="hover:text-foreground transition-colors">{t("footer.disclaimer")}</Link>
-            <Link to="/contact" className="hover:text-foreground transition-colors">{t("footer.contact")}</Link>
+
           </div>
 
           <p className="text-xs text-muted-foreground/60">© 2026 AccessAI</p>
