@@ -7,8 +7,10 @@ import {
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import GlassCard from "@/components/GlassCard";
+import { useI18n } from "@/lib/i18n";
 
 const About = () => {
+  const { t } = useI18n();
   const team = [
     { name: "Arun Arya", role: "Team Leader & Tester", description: "Arun leads the team with clear vision and coordination. He also ensures the quality and performance of our project through thorough testing.", icon: User },
     { name: "Mukundh Reddy", role: "Core Designer & Backend Developer", description: "Mukundh is responsible for designing the core system architecture and implementing the backend functionality that powers our application.", icon: User },
@@ -16,9 +18,9 @@ const About = () => {
   ];
 
   const stats = [
-    { value: "50K+", label: "Reports Analyzed" },
+    { value: "5+", label: "Reports Analyzed" },
     { value: "12+", label: "Languages Supported" },
-    { value: "98%", label: "User Satisfaction" },
+    { value: "80%", label: "User Satisfaction" },
     { value: "24/7", label: "Availability" },
   ];
 
@@ -37,13 +39,11 @@ const About = () => {
             className="text-center max-w-3xl mx-auto"
           >
             <h1 className="font-display font-bold text-3xl sm:text-5xl lg:text-6xl leading-tight mb-6">
-              About <span className="gradient-text">Us</span>
+              {t('about.title')}
             </h1>
-            <h2 className="text-xl sm:text-2xl font-semibold mb-4">Welcome to AccessAI</h2>
+            <h2 className="text-xl sm:text-2xl font-semibold mb-4">{t('about.welcome')}</h2>
             <p className="text-lg sm:text-xl text-muted-foreground leading-relaxed">
-              We are a passionate team working together to build innovative AI-powered solutions 
-              that can make a positive impact. Our goal is to leverage AWS technologies and 
-              artificial intelligence to create smart, scalable, and user-friendly applications.
+              {t('about.description')}
             </p>
           </motion.div>
         </div>
@@ -62,16 +62,12 @@ const About = () => {
               <div className="w-16 h-16 rounded-2xl gradient-bg flex items-center justify-center mb-6">
                 <Target className="w-8 h-8 text-primary-foreground" />
               </div>
-              <h2 className="font-display text-2xl sm:text-3xl font-bold mb-4">Our Mission</h2>
+              <h2 className="font-display text-2xl sm:text-3xl font-bold mb-4">{t('about.mission.title')}</h2>
               <p className="text-muted-foreground leading-relaxed mb-4">
-                AccessAI was born from a simple observation: millions of people struggle to understand 
-                their medical reports every day. Complex medical jargon, language barriers, and limited 
-                access to healthcare professionals create significant challenges.
+                {t('about.mission.text1')}
               </p>
               <p className="text-muted-foreground leading-relaxed">
-                We believe that everyone deserves to understand their health information. Our AI-powered 
-                platform simplifies medical reports into plain language, provides audio explanations in 
-                local languages, and helps users discover government healthcare schemes they're eligible for.
+                {t('about.mission.text2')}
               </p>
             </motion.div>
 
@@ -184,10 +180,10 @@ const About = () => {
             viewport={{ once: true }}
             className="font-display text-2xl sm:text-3xl font-bold text-center mb-4"
           >
-            Our <span className="gradient-text">Team</span>
+            {t('about.team.title')}
           </motion.h2>
           <p className="text-center text-muted-foreground mb-12 max-w-2xl mx-auto">
-            Meet the passionate individuals behind AccessAI
+            {t('about.team.subtitle')}
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
