@@ -1,6 +1,6 @@
 <div align="center">
 
-<h1>AccessAI</h1>
+### AccessAI
 
 <sup>
 <a href="https://fastapi.tiangolo.com"><img src="https://img.shields.io/badge/FastAPI-0.115-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI"></a>
@@ -10,17 +10,27 @@
 <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License"></a>
 </sup>
 
-<p><sub><strong>A low-bandwidth, multilingual, voice-first system that helps underserved communities understand medical information and navigate public healthcare schemes.</strong></sub></p>
+<br>
 
-<p><sub><em>AccessAI is not a diagnostic system. It is an information and navigation layer.</em></sub></p>
+<sub><strong>A low-bandwidth, multilingual, voice-first system that helps underserved communities understand medical information and navigate public healthcare schemes.</strong></sub>
+
+<br>
+
+<sub><em>AccessAI is not a diagnostic system. It is an information and navigation layer.</em></sub>
 
 </div>
 
+<br>
+
 ---
 
-## Problem
+<br>
+
+### Problem
 
 Millions in rural and semi-urban settings receive medical reports they cannot understand, in a healthcare landscape that is hard to navigate.
+
+<br>
 
 | Challenge | Impact |
 |:----------|:-------|
@@ -29,11 +39,17 @@ Millions in rural and semi-urban settings receive medical reports they cannot un
 | Limited doctor access | Consultations carry long wait times and out-of-pocket costs |
 | Fragmented policy information | Government healthcare schemes are buried across large, poorly structured PDF portals |
 
+<br>
+
 ---
 
-## Solution
+<br>
+
+### Solution
 
 AccessAI sits between the patient and the healthcare system. It takes a medical report, and returns a simple, voice-based explanation in Hindi — along with matched government schemes and clear next steps.
+
+<br>
 
 ```
 User uploads medical report (PDF / image)
@@ -65,7 +81,9 @@ Relevant government schemes matched (RAG + Titan Embeddings)
 Hindi audio explanation delivered (Translate + Polly)
 ```
 
-### Design Principles
+<br>
+
+#### Design Principles
 
 | Principle | Description |
 |:----------|:------------|
@@ -75,37 +93,59 @@ Hindi audio explanation delivered (Translate + Polly)
 | **Non-diagnostic** | Every output carries an explicit medical disclaimer |
 | **India-contextual** | Supports Hindi and English; matches national & state healthcare schemes |
 
+<br>
+
 ---
 
-## User Journey
+<br>
 
-1. **Upload** — Select language, upload medical report (PDF, JPG, PNG, up to 10 MB)
-2. **Processing** — Upload to S3, Textract OCR, auto-delete S3 file, PII anonymization
-3. **Analysis** — Plain-language summary with key findings, abnormal values, questions to ask doctor
-4. **Audio** — Hindi translation via Amazon Translate, spoken via Amazon Polly (Kajal)
-5. **Schemes** — Enter profile info (state, income, age, BPL status), RAG matches eligible schemes
-6. **Follow-up** — Chat interface for questions about the report
-**Step 1 — Upload**
+### User Journey
+
+<br>
+
+#### Step 1 — Upload
+
 The user selects their preferred language (English / Hindi / Kannada), then uploads a medical report (PDF, JPG, or PNG, up to 10 MB).
 
-**Step 2 — Processing**
+<br>
+
+#### Step 2 — Processing
+
 The system uploads to S3, extracts text via Textract, auto-deletes the S3 file for privacy, anonymizes PII (names, phone numbers, hospital IDs), and passes sanitized text to the AI layer.
 
-**Step 3 — Analysis**
+<br>
+
+#### Step 3 — Analysis
+
 The Clinical Reasoning Engine first runs deterministic inference — matching 16 cross-test correlation rules (e.g., low Hb + low MCV + low ferritin → iron-deficiency anaemia pattern) and computing 5 organ-system risk scores. This machine-derived reasoning is injected into the LLM prompt so the model *validates and enriches* rather than generating from scratch. After the LLM responds, the Hallucination Guard verifies every reported value and test name against the source text, auto-corrects inconsistent statuses, and removes ungrounded findings. Each finding receives a "Verified" or "Unverified" badge. Critical values trigger emergency alerts with helpline numbers.
 
-**Step 4 — Audio**
+<br>
+
+#### Step 4 — Audio
+
 The summary is translated to Hindi via Amazon Translate (with Bedrock LLM fallback) and read aloud using Amazon Polly's neural voice (Kajal).
 
-**Step 5 — Schemes**
+<br>
+
+#### Step 5 — Schemes
+
 The user enters basic profile info (state, income, age, BPL status) and the RAG engine matches eligible government health schemes with transparent match factors explaining *why* each scheme applies.
 
-**Step 6 — Follow-up**
+<br>
+
+#### Step 6 — Follow-up
+
 A chat interface lets the user ask follow-up questions about their report. Responses respect the same safety guardrails.
+
+<br>
 
 ---
 
-## Architecture
+<br>
+
+### Architecture
+
+<br>
 
 ```
 ┌─────────────────────────────────────────────────────┐
@@ -141,11 +181,17 @@ A chat interface lets the user ask follow-up questions about their report. Respo
 └──────────────────────────────────────────────────────┘
 ```
 
+<br>
+
 ---
 
-## Stack
+<br>
 
-### Frontend
+### Stack
+
+<br>
+
+#### Frontend
 
 | Component | Technology |
 |:----------|:-----------|
@@ -158,7 +204,9 @@ A chat interface lets the user ask follow-up questions about their report. Respo
 | i18n | English, Hindi, Kannada |
 | PWA | Service worker + manifest |
 
-### Backend
+<br>
+
+#### Backend
 
 | Component | Technology |
 |:----------|:-----------|
@@ -170,19 +218,12 @@ A chat interface lets the user ask follow-up questions about their report. Respo
 | OCR Fallback | Tesseract |
 | Testing | pytest + httpx |
 
-### AWS Services
+<br>
+
+#### AWS Services
 
 | Service | Purpose |
 |:--------|:--------|
-| Amazon Bedrock | LLM analysis & chat (Kimi K2.5) |
-| Amazon Textract | OCR — text, tables, key-value extraction |
-| Amazon Polly | Neural TTS (Kajal voice, Hindi) |
-| Amazon Translate | English→Hindi translation |
-| Amazon Comprehend | PII entity detection |
-| Amazon S3 | Ephemeral document storage |
-| Amazon SNS | SMS summary delivery |
-| Titan Embeddings | Semantic vector search for RAG |
-|---------|---------|
 | **Amazon Bedrock** | LLM analysis & follow-up chat (Claude Haiku 4.5 via Converse API) |
 | **Amazon Bedrock Titan Embeddings** | Semantic vector search for scheme RAG |
 | **Amazon Textract** | OCR — text, tables, key-value extraction from reports |
@@ -192,11 +233,18 @@ A chat interface lets the user ask follow-up questions about their report. Respo
 | **Amazon S3** | Ephemeral document storage (auto-deleted after OCR) |
 | **Amazon SNS** | SMS summary delivery (optional) |
 
+<br>
+
 ---
 
-## Features
+<br>
 
-### Medical Document Understanding
+### Features
+
+<br>
+
+#### Medical Document Understanding
+
 - PDFs and images (JPG, PNG, TIFF) up to 10 MB
 - Async Textract for multi-page PDFs; sync for images
 - Quality scoring and fallback OCR for low-quality scans
@@ -204,18 +252,25 @@ A chat interface lets the user ask follow-up questions about their report. Respo
 - Async Textract for multi-page PDFs; sync for single images
 - Handles low-quality scans with quality scoring and fallback OCR
 
-### Clinical Reasoning Engine (Deterministic AI)
+<br>
+
+#### Clinical Reasoning Engine (Deterministic AI)
+
 A rule-based inference engine that runs *before* the LLM, producing machine-derived clinical insights:
+
 - **16 cross-test correlation rules** — iron-deficiency anaemia, renal impairment, diabetes pattern, dyslipidaemia, hepatocellular injury, hypothyroidism, hyperthyroidism, metabolic syndrome, infection markers, coagulation risk, gout/hyperuricaemia, vitamin D deficiency, B12 deficiency, electrolyte imbalance, cholestatic pattern, pancytopenia
 - **5 organ-system risk calculators** — cardiovascular, renal, metabolic, hepatic, haematological
 - **Structured reasoning chains** — each pattern carries weighted evidence steps, a confidence score, clinical significance level, and suggested follow-up tests
 - The reasoning output is injected into the LLM prompt so the model *validates and enriches* existing inference rather than generating from scratch
 
-### Hallucination Guard (Post-hoc Verification)
+<br>
+
+#### Hallucination Guard (Post-hoc Verification)
+
 A 5-layer verification system that runs *after* the LLM responds, catching fabricated or inconsistent claims:
 
 | Layer | Check | Action |
-|-------|-------|--------|
+|:------|:------|:-------|
 | **Value Anchoring** | Every numeric value must appear (±5% tolerance) in the OCR source text | Flag or remove if absent |
 | **Name Anchoring** | Every test name must match a token in the source (with alias matching for 30+ lab tests) | Flag if unrecognised |
 | **Range Plausibility** | The "normal range" the LLM cites is checked against authoritative reference data | Flag if >30% deviation |
@@ -224,21 +279,30 @@ A 5-layer verification system that runs *after* the LLM responds, catching fabri
 
 Each key finding in the UI carries a **"✓ Verified"** or **"⚠ Unverified"** badge. An aggregate Hallucination Guard panel shows verified/flagged/removed counts and fabrication risk.
 
-### Transparent AI Confidence Scoring
+<br>
+
+#### Transparent AI Confidence Scoring
+
 - Weighted 4-signal formula: OCR readability (30%), extraction completeness (25%), abnormal-value certainty (25%), LLM self-evaluation (20%)
 - Full breakdown visible in UI for audit
 - Weighted 4-signal formula (not arbitrary): OCR readability (30%), extraction completeness (25%), abnormal-value certainty (25%), LLM self-evaluation (20%)
 - Full breakdown visible in the UI so users and reviewers can audit the score
 - Confidence is penalised (up to 25 points) proportional to the hallucination guard's fabrication risk
 
-### Source-Grounded Findings
+<br>
+
+#### Source-Grounded Findings
+
 - Each finding cites where in the report the value was extracted
 - Local pattern-matching cross-checks LLM output against reference ranges
 - Each key finding cites *where* in the report the value was extracted (e.g., "CBC table row 3")
 - Local pattern-matching cross-checks LLM output against known medical reference ranges
 - Hallucination guard provides a second layer of source-text verification
 
-### Medical Safety Guardrails
+<br>
+
+#### Medical Safety Guardrails
+
 - Every summary prefixed with explicit AI-generated disclaimer
 - Uncertainty-aware phrasing; never diagnoses or recommends treatment
 - Static safety banner in UI
@@ -248,28 +312,43 @@ Each key finding in the UI carries a **"✓ Verified"** or **"⚠ Unverified"** 
 - Static safety banner rendered in the UI
 - Anti-hallucination constraints enforced at the prompt level: "ONLY report values that LITERALLY appear in the report", "Do NOT invent, estimate, or extrapolate"
 
-### Critical Value Emergency Alerts
+<br>
+
+#### Critical Value Emergency Alerts
+
 - Detects life-threatening lab values (glucose < 50, potassium > 6.0, etc.)
 - Alert banner with emergency helpline numbers (112, 108, AIIMS)
 - One-tap call buttons
 
-### Voice-First Audio
+<br>
+
+#### Voice-First Audio
+
 - Hindi audio via Amazon Translate → Amazon Polly (Kajal, neural engine)
 - Playback controls: play/pause, skip ±10s, speed (0.75x–2x), replay
 - Compressed MP3 via S3 presigned URLs (1-hour expiry)
 
-### Government Scheme Matching (RAG)
+<br>
+
+#### Government Scheme Matching (RAG)
+
 - 15+ national and state schemes
 - Titan Embeddings cosine similarity + hard eligibility filters
 - Transparent match factors checklist
 - LLM-generated personalized recommendations
 
-### Privacy-First Pipeline
+<br>
+
+#### Privacy-First Pipeline
+
 - PII anonymized before any text reaches LLM (regex + Comprehend)
 - Documents auto-deleted from S3 immediately after OCR
 - Session-based in-memory storage; no persistent database
 
-### Follow-up Chat
+<br>
+
+#### Follow-up Chat
+
 - Conversational Q&A about uploaded report
 - Same safety guardrails and language support
 - Conversational Q&A about the uploaded report
@@ -277,28 +356,41 @@ Each key finding in the UI carries a **"✓ Verified"** or **"⚠ Unverified"** 
 - Grounding constraints in follow-up prompt: only reference values present in the report
 - Chat history stored in session
 
-### SMS Summary
+<br>
+
+#### SMS Summary
+
 - Send analysis summary + scheme info to Indian mobile numbers
 - Powered by Amazon SNS (optional; disabled by default)
 
+<br>
+
 ---
 
-## Getting Started
+<br>
 
-### Prerequisites
+### Getting Started
+
+<br>
+
+#### Prerequisites
 
 - Node.js 18+
 - Python 3.10+
 - AWS account with access to: Bedrock, Textract, Polly, Translate, Comprehend, S3
 
-### 1. Clone
+<br>
+
+#### 1. Clone
 
 ```bash
 git clone https://github.com/mukundhr/AccessAI.git
 cd accessai
 ```
 
-### 2. Configure
+<br>
+
+#### 2. Configure
 
 Create `.env` in project root:
 
@@ -311,7 +403,9 @@ AWS_BEDROCK_MODEL_ID=anthropic.claude-haiku-4-5-20251001-v1:0
 VITE_API_URL=http://localhost:8000/api/v1
 ```
 
-### 3. Start Frontend
+<br>
+
+#### 3. Start Frontend
 
 ```bash
 npm install
@@ -320,7 +414,9 @@ npm run dev
 
 Frontend runs at `http://localhost:8080`
 
-### 4. Start Backend
+<br>
+
+#### 4. Start Backend
 
 ```bash
 cd backend
@@ -332,9 +428,15 @@ uvicorn main:app --reload --port 8000
 
 API runs at `http://localhost:8000` — Docs at `/docs`
 
+<br>
+
 ---
 
-## API Endpoints
+<br>
+
+### API Endpoints
+
+<br>
 
 | Method | Endpoint | Description |
 |:-------|:---------|:------------|
@@ -349,9 +451,15 @@ API runs at `http://localhost:8000` — Docs at `/docs`
 | `POST` | `/api/v1/audio/synthesize` | Generate Hindi audio |
 | `POST` | `/api/v1/notifications/send-summary` | Send SMS summary |
 
+<br>
+
 ---
 
-## Security & Privacy
+<br>
+
+### Security & Privacy
+
+<br>
 
 | Layer | Safeguard |
 |:------|:----------|
@@ -362,9 +470,13 @@ API runs at `http://localhost:8000` — Docs at `/docs`
 | Non-diagnostic | Uncertainty-aware language; never diagnoses or prescribes |
 | Transport Security | HTTPS in production; CORS restricted to known origins |
 
+<br>
+
 ---
 
-## Limitations
+<br>
+
+### Limitations
 
 - AccessAI is a guidance tool, not a clinical system
 - Does not diagnose conditions or prescribe treatment
@@ -372,16 +484,24 @@ API runs at `http://localhost:8000` — Docs at `/docs`
 - Kannada text analysis supported but audio not available (AWS Polly limitation)
 - Scheme eligibility is indicative — verify with relevant authority
 
+<br>
+
 ---
 
-## Why AccessAI
+<br>
+
+### Why AccessAI
 
 AccessAI addresses the first barrier to healthcare access: **understanding**.
 
 Most digital health tools are built for the already-connected. AccessAI is built for everyone else — converting medical and policy information into clear, localized, voice-based guidance.
 
+<br>
+
 ---
 
-## License
+<br>
+
+### License
 
 MIT — see [LICENSE](LICENSE)
