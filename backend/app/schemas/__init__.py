@@ -3,7 +3,7 @@ AccessAI Pydantic Schemas
 Request and response models for API endpoints.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing import Optional, List, Dict, Any
 from enum import Enum
 from datetime import datetime
@@ -216,14 +216,57 @@ class FollowUpResponse(BaseModel):
 
 # ==================== Scheme Schemas ====================
 
+class OccupationCategory(str, Enum):
+    GENERAL = "general"
+    FARMER = "farmer"
+    GOVERNMENT_EMPLOYEE = "government_employee"
+    PRIVATE_EMPLOYEE = "private_employee"
+    SELF_EMPLOYED = "self_employed"
+    STUDENT = "student"
+    HOMEMAKER = "homemaker"
+    SENIOR_CITIZEN = "senior_citizen"
+    UNEMPLOYED = "unemployed"
+
+
+class Gender(str, Enum):
+    MALE = "male"
+    FEMALE = "female"
+    OTHER = "other"
+
+
 class SchemeMatchRequest(BaseModel):
-    state: str = Field(..., description="User's state")
+    state: str = Field(..., description="User's state", min_length=2, max_length=50)
     income_range: str = Field(..., description="Income range")
-    age: int = Field(..., ge=0, le=150)
-    is_bpl: bool = Field(default=False)
-    conditions: Optional[List[str]] = None
+    age: int = Field(..., ge=0, le=120, description="User's age in years")
+    is_bpl: bool = Field(default=False, description="Below Poverty Line status")
+    gender: Gender = Field(default=Gender.MALE, description="User's gender for gender-specific schemes")
+    occupation: OccupationCategory = Field(default=OccupationCategory.GENERAL, description="Occupation category")
+    is_disabled: bool = Field(default=False, description="Differently-abled status")
+    disability_percentage: Optional[int] = Field(None, ge=0, le=100, description="Disability percentage if applicable")
+    is_senior_citizen: Optional[bool] = Field(None, description="Senior citizen status (auto-calculated from age if not provided)")
+    has_ration_card: bool = Field(default=False, description="Whether user has a ration card")
+    ration_card_type: Optional[str] = Field(None, description="Type of ration card (yellow/orange/white/etc)")
+    is_student: bool = Field(default=False, description="Student status")
+    education_level: Optional[str] = Field(None, description="Education level if student")
+    conditions: Optional[List[str]] = Field(None, description="Medical conditions from report")
     session_id: Optional[str] = Field(None, description="Session ID to pull medical context for RAG")
     language: Language = Language.ENGLISH
+    
+    @model_validator(mode='after')
+    def validate_senior_citizen(self):
+        """Auto-calculate senior citizen status from age if not provided."""
+        if self.is_senior_citizen is None:
+            self.is_senior_citizen = self.age >= 60
+        return self
+    
+    @model_validator(mode='after')
+    def validate_disability(self):
+        """Validate disability fields."""
+        if self.is_disabled and self.disability_percentage is None:
+            self.disability_percentage = 40  # Default assumption if disabled but no percentage given
+        if not self.is_disabled:
+            self.disability_percentage = None
+        return self
 
 
 class MatchFactor(BaseModel):

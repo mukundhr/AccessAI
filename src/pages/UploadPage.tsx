@@ -6,7 +6,9 @@ import {
   Wifi, WifiOff, Loader2, CheckCircle2, AlertTriangle, Info,
   ArrowUp, ArrowDown, Minus, Send, X, SkipBack, SkipForward,
   Eye, Shield, Zap, Phone, Star, ExternalLink, Sparkles,
-  Siren, MessageCircle, PhoneCall
+  Siren, MessageCircle, PhoneCall, User, MapPin, Calendar, Wallet,
+  Briefcase, Users, Sprout, Building, Store, GraduationCap, Home,
+  UserX, Tags, CreditCard, IdCard, Accessibility
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import DisclaimerBar from "@/components/DisclaimerBar";
@@ -71,8 +73,17 @@ const UploadPage = () => {
   const [schemeIncome, setSchemeIncome] = useState("below-1l");
   const [schemeAge, setSchemeAge] = useState("30");
   const [schemeBpl, setSchemeBpl] = useState(true);
+  const [schemeGender, setSchemeGender] = useState<"male" | "female" | "other">("male");
+  const [schemeOccupation, setSchemeOccupation] = useState<"general" | "farmer" | "government_employee" | "private_employee" | "self_employed" | "student" | "homemaker" | "senior_citizen" | "unemployed">("general");
+  const [schemeIsDisabled, setSchemeIsDisabled] = useState(false);
+  const [schemeDisabilityPercentage, setSchemeDisabilityPercentage] = useState<string>("");
+  const [schemeHasRationCard, setSchemeHasRationCard] = useState(false);
+  const [schemeRationCardType, setSchemeRationCardType] = useState<"yellow" | "orange" | "white" | "">("");
+  const [schemeIsStudent, setSchemeIsStudent] = useState(false);
+  const [schemeEducationLevel, setSchemeEducationLevel] = useState<"primary" | "secondary" | "higher_secondary" | "undergraduate" | "postgraduate" | "">("");
   const [showSchemes, setShowSchemes] = useState(false);
   const [schemeLoading, setSchemeLoading] = useState(false);
+  const [schemeFormErrors, setSchemeFormErrors] = useState<Record<string, string>>({});
 
   // Chat / follow-up state
   const [showChat, setShowChat] = useState(false);
@@ -331,20 +342,67 @@ const UploadPage = () => {
 
   // ==================== Scheme matching ====================
 
+  const validateSchemeForm = (): boolean => {
+    const errors: Record<string, string> = {};
+    
+    const ageNum = parseInt(schemeAge);
+    if (isNaN(ageNum) || ageNum < 0 || ageNum > 120) {
+      errors.age = "Please enter a valid age between 0 and 120";
+    }
+    
+    if (schemeIsDisabled) {
+      const disabilityPercent = parseInt(schemeDisabilityPercentage);
+      if (schemeDisabilityPercentage && (isNaN(disabilityPercent) || disabilityPercent < 0 || disabilityPercent > 100)) {
+        errors.disability = "Please enter a valid disability percentage (0-100)";
+      }
+    }
+    
+    setSchemeFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const findEligibleSchemes = async () => {
+    if (!validateSchemeForm()) {
+      return;
+    }
+    
     try {
       setSchemeLoading(true);
-      const response = await apiClient.matchSchemes(
-        schemeState,
-        schemeIncome,
-        parseInt(schemeAge),
-        schemeBpl,
-        undefined,
-        uploadResponse?.session_id,
-        selectedLanguage
-      );
+      setSchemeFormErrors({});
+      
+      const ageNum = parseInt(schemeAge);
+      const isSeniorCitizen = ageNum >= 60;
+      
+      const request = {
+        state: schemeState,
+        income_range: schemeIncome,
+        age: ageNum,
+        is_bpl: schemeBpl,
+        gender: schemeGender,
+        occupation: schemeOccupation,
+        is_disabled: schemeIsDisabled,
+        disability_percentage: schemeDisabilityPercentage ? parseInt(schemeDisabilityPercentage) : undefined,
+        is_senior_citizen: isSeniorCitizen,
+        has_ration_card: schemeHasRationCard,
+        ration_card_type: schemeRationCardType || undefined,
+        is_student: schemeIsStudent,
+        education_level: schemeEducationLevel || undefined,
+        conditions: analysisResult?.key_findings?.map((f: KeyFinding) => f.test_name) || [],
+        session_id: uploadResponse?.session_id,
+        language: selectedLanguage,
+      };
+      
+      const response = await apiClient.matchSchemes(request);
       setSchemeResult(response);
       setShowSchemes(true);
+      
+      // Scroll to results
+      setTimeout(() => {
+        const resultsElement = document.getElementById('scheme-results');
+        if (resultsElement) {
+          resultsElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
     } catch (err: any) {
       setError(`Scheme matching failed: ${err.message}`);
     } finally {
@@ -1413,54 +1471,323 @@ const UploadPage = () => {
                   )}
                 </h3>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1.5 block">{t("schemes.state")}</label>
-                    <select value={schemeState} onChange={(e) => setSchemeState(e.target.value)}
-                      className="w-full glass-card bg-secondary p-3 rounded-xl text-sm text-foreground border-none outline-none">
-                      <option>Karnataka</option>
-                      <option>Maharashtra</option>
-                      <option>Tamil Nadu</option>
-                      <option>Uttar Pradesh</option>
-                      <option>Kerala</option>
-                      <option>Andhra Pradesh</option>
-                      <option>Telangana</option>
-                      <option>West Bengal</option>
-                      <option>Rajasthan</option>
-                      <option>Gujarat</option>
-                      <option>Odisha</option>
-                      <option>Madhya Pradesh</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1.5 block">{t("schemes.income")}</label>
-                    <select value={schemeIncome} onChange={(e) => setSchemeIncome(e.target.value)}
-                      className="w-full glass-card bg-secondary p-3 rounded-xl text-sm text-foreground border-none outline-none">
-                      <option value="below-1l">Below ₹1,00,000</option>
-                      <option value="1l-3l">₹1,00,000 – ₹3,00,000</option>
-                      <option value="3l-5l">₹3,00,000 – ₹5,00,000</option>
-                      <option value="above-5l">Above ₹5,00,000</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1.5 block">Age</label>
-                    <input type="number" value={schemeAge} onChange={(e) => setSchemeAge(e.target.value)}
-                      className="w-full glass-card bg-secondary p-3 rounded-xl text-sm text-foreground border-none outline-none" placeholder="Enter age" />
-                  </div>
-                  <div className="flex items-end">
-                    <button
-                      onClick={() => setSchemeBpl(!schemeBpl)}
-                      className={`w-full p-3 rounded-xl text-sm font-medium transition-colors ${
-                        schemeBpl ? "gradient-bg text-primary-foreground" : "glass-card text-muted-foreground"
-                      }`}
-                    >
-                      {schemeBpl ? "BPL Card Holder" : "APL (No BPL Card)"}
-                    </button>
+                {/* Basic Information Section */}
+                <div className="mb-5">
+                  <p className="text-xs font-medium text-primary mb-3 flex items-center gap-1.5">
+                    <User className="w-3.5 h-3.5" /> Basic Information
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* State */}
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1">
+                        <MapPin className="w-3 h-3" /> {t("schemes.state")} *
+                      </label>
+                      <select
+                        value={schemeState}
+                        onChange={(e) => setSchemeState(e.target.value)}
+                        className="w-full glass-card bg-secondary p-3 rounded-xl text-sm text-foreground border-none outline-none focus:ring-2 focus:ring-primary/30 transition-all"
+                      >
+                        <option>Karnataka</option>
+                        <option>Maharashtra</option>
+                        <option>Tamil Nadu</option>
+                        <option>Uttar Pradesh</option>
+                        <option>Kerala</option>
+                        <option>Andhra Pradesh</option>
+                        <option>Telangana</option>
+                        <option>West Bengal</option>
+                        <option>Rajasthan</option>
+                        <option>Gujarat</option>
+                        <option>Odisha</option>
+                        <option>Madhya Pradesh</option>
+                        <option>Delhi</option>
+                        <option>Punjab</option>
+                        <option>Haryana</option>
+                        <option>Bihar</option>
+                        <option>Assam</option>
+                        <option>Jharkhand</option>
+                        <option>Chhattisgarh</option>
+                      </select>
+                    </div>
+                    
+                    {/* Age */}
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1">
+                        <Calendar className="w-3 h-3" /> Age (Years) *
+                      </label>
+                      <input
+                        type="number"
+                        value={schemeAge}
+                        onChange={(e) => {
+                          setSchemeAge(e.target.value);
+                          if (schemeFormErrors.age) {
+                            setSchemeFormErrors(prev => ({ ...prev, age: '' }));
+                          }
+                        }}
+                        className={`w-full glass-card bg-secondary p-3 rounded-xl text-sm text-foreground border-none outline-none focus:ring-2 transition-all ${
+                          schemeFormErrors.age ? 'ring-2 ring-red-500/50' : 'focus:ring-primary/30'
+                        }`}
+                        placeholder="Enter your age"
+                        min="0"
+                        max="120"
+                      />
+                      {schemeFormErrors.age && (
+                        <p className="text-[10px] text-red-400 mt-1 flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3" /> {schemeFormErrors.age}
+                        </p>
+                      )}
+                    </div>
+                    
+                    {/* Gender */}
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1">
+                        <User className="w-3 h-3" /> Gender *
+                      </label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          { value: 'male', label: 'Male', icon: '♂' },
+                          { value: 'female', label: 'Female', icon: '♀' },
+                          { value: 'other', label: 'Other', icon: '⚧' },
+                        ].map((g) => (
+                          <button
+                            key={g.value}
+                            onClick={() => setSchemeGender(g.value as typeof schemeGender)}
+                            className={`p-2.5 rounded-xl text-xs font-medium transition-all ${
+                              schemeGender === g.value
+                                ? "gradient-bg text-primary-foreground"
+                                : "glass-card text-muted-foreground hover:bg-secondary/80"
+                            }`}
+                          >
+                            <span className="mr-1">{g.icon}</span>{g.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {/* Income */}
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1">
+                        <Wallet className="w-3 h-3" /> {t("schemes.income")} *
+                      </label>
+                      <select
+                        value={schemeIncome}
+                        onChange={(e) => setSchemeIncome(e.target.value)}
+                        className="w-full glass-card bg-secondary p-3 rounded-xl text-sm text-foreground border-none outline-none focus:ring-2 focus:ring-primary/30 transition-all"
+                      >
+                        <option value="below-1l">Below ₹1,00,000 (BPL)</option>
+                        <option value="1l-3l">₹1,00,000 – ₹3,00,000</option>
+                        <option value="3l-5l">₹3,00,000 – ₹5,00,000</option>
+                        <option value="5l-8l">₹5,00,000 – ₹8,00,000</option>
+                        <option value="above-8l">Above ₹8,00,000</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
 
-                <button onClick={findEligibleSchemes} disabled={schemeLoading}
-                  className="btn-primary-gradient w-full py-3 text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-60">
+                {/* Occupation Section */}
+                <div className="mb-5">
+                  <p className="text-xs font-medium text-primary mb-3 flex items-center gap-1.5">
+                    <Briefcase className="w-3.5 h-3.5" /> Occupation & Work
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {[
+                      { value: 'general', label: 'General', icon: Users },
+                      { value: 'farmer', label: 'Farmer', icon: Sprout },
+                      { value: 'government_employee', label: 'Govt Employee', icon: Building },
+                      { value: 'private_employee', label: 'Private Job', icon: Briefcase },
+                      { value: 'self_employed', label: 'Self Employed', icon: Store },
+                      { value: 'student', label: 'Student', icon: GraduationCap },
+                      { value: 'homemaker', label: 'Homemaker', icon: Home },
+                      { value: 'unemployed', label: 'Unemployed', icon: UserX },
+                    ].map((occ) => (
+                      <button
+                        key={occ.value}
+                        onClick={() => {
+                          setSchemeOccupation(occ.value as typeof schemeOccupation);
+                          if (occ.value === 'student') setSchemeIsStudent(true);
+                          if (occ.value === 'senior_citizen') setSchemeIsDisabled(false);
+                        }}
+                        className={`p-2.5 rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-1.5 ${
+                          schemeOccupation === occ.value
+                            ? "gradient-bg text-primary-foreground"
+                            : "glass-card text-muted-foreground hover:bg-secondary/80"
+                        }`}
+                      >
+                        <occ.icon className="w-3.5 h-3.5" />
+                        {occ.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Additional Categories - Quick Toggles */}
+                <div className="mb-5">
+                  <p className="text-xs font-medium text-primary mb-3 flex items-center gap-1.5">
+                    <Tags className="w-3.5 h-3.5" /> Special Categories
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* BPL Toggle */}
+                    <button
+                      onClick={() => setSchemeBpl(!schemeBpl)}
+                      className={`p-3 rounded-xl text-sm font-medium transition-all flex items-center justify-between ${
+                        schemeBpl
+                          ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                          : "glass-card text-muted-foreground hover:bg-secondary/80"
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <CreditCard className="w-4 h-4" />
+                        BPL Card Holder
+                      </span>
+                      {schemeBpl && <CheckCircle2 className="w-4 h-4" />}
+                    </button>
+                    
+                    {/* Ration Card Toggle */}
+                    <button
+                      onClick={() => {
+                        setSchemeHasRationCard(!schemeHasRationCard);
+                        if (schemeHasRationCard) setSchemeRationCardType('');
+                      }}
+                      className={`p-3 rounded-xl text-sm font-medium transition-all flex items-center justify-between ${
+                        schemeHasRationCard
+                          ? "bg-amber-500/15 text-amber-400 border border-amber-500/30"
+                          : "glass-card text-muted-foreground hover:bg-secondary/80"
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <IdCard className="w-4 h-4" />
+                        Have Ration Card
+                      </span>
+                      {schemeHasRationCard && <CheckCircle2 className="w-4 h-4" />}
+                    </button>
+                    
+                    {/* Disability Toggle */}
+                    <button
+                      onClick={() => {
+                        setSchemeIsDisabled(!schemeIsDisabled);
+                        if (schemeIsDisabled) setSchemeDisabilityPercentage('');
+                      }}
+                      className={`p-3 rounded-xl text-sm font-medium transition-all flex items-center justify-between ${
+                        schemeIsDisabled
+                          ? "bg-blue-500/15 text-blue-400 border border-blue-500/30"
+                          : "glass-card text-muted-foreground hover:bg-secondary/80"
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <Accessibility className="w-4 h-4" />
+                        Differently Abled
+                      </span>
+                      {schemeIsDisabled && <CheckCircle2 className="w-4 h-4" />}
+                    </button>
+                    
+                    {/* Student Toggle */}
+                    <button
+                      onClick={() => {
+                        setSchemeIsStudent(!schemeIsStudent);
+                        if (schemeIsStudent) {
+                          setSchemeEducationLevel('');
+                        } else {
+                          setSchemeOccupation('student');
+                        }
+                      }}
+                      className={`p-3 rounded-xl text-sm font-medium transition-all flex items-center justify-between ${
+                        schemeIsStudent
+                          ? "bg-purple-500/15 text-purple-400 border border-purple-500/30"
+                          : "glass-card text-muted-foreground hover:bg-secondary/80"
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <GraduationCap className="w-4 h-4" />
+                        Currently Studying
+                      </span>
+                      {schemeIsStudent && <CheckCircle2 className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  
+                  {/* Conditional Fields */}
+                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Disability Percentage */}
+                    {schemeIsDisabled && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                      >
+                        <label className="text-xs text-muted-foreground mb-1.5 block">
+                          Disability Percentage (%)
+                        </label>
+                        <input
+                          type="number"
+                          value={schemeDisabilityPercentage}
+                          onChange={(e) => setSchemeDisabilityPercentage(e.target.value)}
+                          placeholder="e.g., 40"
+                          min="0"
+                          max="100"
+                          className={`w-full glass-card bg-secondary p-2.5 rounded-xl text-sm text-foreground border-none outline-none ${
+                            schemeFormErrors.disability ? 'ring-2 ring-red-500/50' : ''
+                          }`}
+                        />
+                        {schemeFormErrors.disability && (
+                          <p className="text-[10px] text-red-400 mt-1">{schemeFormErrors.disability}</p>
+                        )}
+                      </motion.div>
+                    )}
+                    
+                    {/* Ration Card Type */}
+                    {schemeHasRationCard && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                      >
+                        <label className="text-xs text-muted-foreground mb-1.5 block">
+                          Ration Card Type
+                        </label>
+                        <select
+                          value={schemeRationCardType}
+                          onChange={(e) => setSchemeRationCardType(e.target.value as typeof schemeRationCardType)}
+                          className="w-full glass-card bg-secondary p-2.5 rounded-xl text-sm text-foreground border-none outline-none"
+                        >
+                          <option value="">Select type</option>
+                          <option value="yellow">Yellow Card (BPL)</option>
+                          <option value="orange">Orange Card (APL)</option>
+                          <option value="white">White Card (Above Poverty Line)</option>
+                        </select>
+                      </motion.div>
+                    )}
+                    
+                    {/* Education Level */}
+                    {schemeIsStudent && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                      >
+                        <label className="text-xs text-muted-foreground mb-1.5 block">
+                          Education Level
+                        </label>
+                        <select
+                          value={schemeEducationLevel}
+                          onChange={(e) => setSchemeEducationLevel(e.target.value as typeof schemeEducationLevel)}
+                          className="w-full glass-card bg-secondary p-2.5 rounded-xl text-sm text-foreground border-none outline-none"
+                        >
+                          <option value="">Select level</option>
+                          <option value="primary">Primary School</option>
+                          <option value="secondary">Secondary School</option>
+                          <option value="higher_secondary">Higher Secondary</option>
+                          <option value="undergraduate">Undergraduate</option>
+                          <option value="postgraduate">Postgraduate</option>
+                        </select>
+                      </motion.div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Action Button */}
+                <button
+                  onClick={findEligibleSchemes}
+                  disabled={schemeLoading}
+                  className="btn-primary-gradient w-full py-3.5 text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-60 rounded-xl transition-all hover:shadow-lg hover:shadow-primary/20"
+                >
                   {schemeLoading ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -1476,7 +1803,7 @@ const UploadPage = () => {
 
                 <AnimatePresence>
                   {showSchemes && schemeResult && (
-                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="mt-5 space-y-4 overflow-hidden">
+                    <motion.div id="scheme-results" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="mt-5 space-y-4 overflow-hidden">
 
                       {/* RAG Summary Banner */}
                       {schemeResult.summary && (

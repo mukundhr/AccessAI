@@ -248,17 +248,23 @@ class SchemeRAGService:
         income_range: str = "",
         age: int = 0,
         is_bpl: bool = False,
+        gender: str = "",
+        occupation: str = "",
+        is_disabled: bool = False,
+        is_senior_citizen: bool = False,
         conditions: Optional[List[str]] = None,
         semantic_score: float = 0.0,
     ) -> tuple[float, List[Dict[str, Any]], str]:
         """
         Calculate smart scheme matching score using weighted formula.
         
-        Score formula:
-        40 State match
-        + 30 Income match  
-        + 20 Category/condition match
-        + 10 Semantic similarity
+        Enhanced Score formula:
+        35 State match
+        + 25 Income match
+        + 15 Category/condition match
+        + 10 Occupation match
+        + 10 Special category (disability/gender/senior)
+        + 5 Semantic similarity
         
         Returns: (total_score, match_factors, match_reason)
         """
@@ -266,12 +272,17 @@ class SchemeRAGService:
         total_score = 0.0
         reasons = []
         
-        # 1. State Match (40 points)
+        eligibility_text = " ".join(scheme.get("eligibility", [])).lower()
+        scheme_name = scheme.get("name", "").lower()
+        scheme_description = scheme.get("description", "").lower()
+        combined_text = f"{scheme_name} {scheme_description} {eligibility_text}"
+        
+        # 1. State Match (35 points)
         state_norm = state.lower().replace(" ", "_") if state else ""
         scheme_state = scheme.get("state", "").lower()
         
         if state_norm and (scheme_state == "all_india" or scheme_state == state_norm):
-            total_score += 40
+            total_score += 35
             match_factors.append({
                 "factor": "State Match",
                 "matched": True,
@@ -285,7 +296,7 @@ class SchemeRAGService:
                 "detail": f"Scheme not available in {state}"
             })
         
-        # 2. Income Match (30 points)
+        # 2. Income Match (25 points)
         income_criteria = scheme.get("income_criteria", "").lower()
         income_matched = False
         income_detail = ""
@@ -293,12 +304,12 @@ class SchemeRAGService:
         if is_bpl:
             # BPL card holders get max income points
             if "bpl" in income_criteria or "below poverty" in income_criteria or "no income" in income_criteria:
-                total_score += 30
+                total_score += 25
                 income_matched = True
                 income_detail = "BPL card holders eligible"
                 reasons.append("Covers BPL families")
             elif income_criteria and ("income" in income_criteria or "annual" in income_criteria):
-                total_score += 25  # Partial match - has income criteria
+                total_score += 20  # Partial match - has income criteria
                 income_matched = True
                 income_detail = f"Income criteria: {income_criteria[:50]}"
                 reasons.append("Income-based eligibility")
@@ -308,7 +319,7 @@ class SchemeRAGService:
             if income_num > 0:
                 scheme_limit = self._extract_income_limit(income_criteria)
                 if scheme_limit > 0 and income_num <= scheme_limit:
-                    total_score += 30
+                    total_score += 25
                     income_matched = True
                     income_detail = f"Your income (₹{income_num/100000:.1f}L) within limit"
                     reasons.append(f"Income within ₹{scheme_limit/100000:.1f}L limit")
@@ -317,13 +328,13 @@ class SchemeRAGService:
                     income_matched = True
                     income_detail = f"Scheme limit: ₹{scheme_limit/100000:.1f}L"
                 elif "no income" in income_criteria or "all" in income_criteria or "universal" in income_criteria:
-                    total_score += 30
+                    total_score += 25
                     income_matched = True
                     income_detail = "No income restrictions"
                     reasons.append("No income restrictions")
         
         if not income_matched and (not income_criteria or "all" in income_criteria):
-            total_score += 30  # Universal schemes
+            total_score += 25  # Universal schemes
             income_matched = True
             income_detail = "Universal coverage - no income check"
         
@@ -333,7 +344,134 @@ class SchemeRAGService:
             "detail": income_detail or ("No specific income criteria" if not income_criteria else "Check eligibility")
         })
         
-        # 3. Category/Condition Match (20 points)
+        # 3. Occupation Match (10 points)
+        occupation_matched = False
+        occupation_detail = ""
+        
+        # Define all occupation keywords to check if scheme has occupation restrictions
+        all_occupation_keywords = {
+            "farmer": ["farmer", "agriculture", "kisan", "krishi", "farming"],
+            "student": ["student", "education", "scholarship", "school", "college"],
+            "senior_citizen": ["senior", "elderly", "pension", "old age"],
+            "government_employee": ["government employee", "public sector", "govt"],
+            "private_employee": ["private employee", "corporate", "private sector"],
+            "self_employed": ["self employed", "business", "entrepreneur", "startup"],
+            "unemployed": ["unemployed", "job seeker", "employment"],
+            "homemaker": ["homemaker", "housewife", "women"],
+        }
+        
+        # Check if scheme has ANY occupation-specific restrictions
+        scheme_has_occupation_restriction = False
+        for occ_keywords in all_occupation_keywords.values():
+            if any(kw in combined_text for kw in occ_keywords):
+                scheme_has_occupation_restriction = True
+                break
+        
+        if occupation and occupation != "general":
+            keywords = all_occupation_keywords.get(occupation, [])
+            if any(kw in combined_text for kw in keywords):
+                # Scheme is specific to this occupation
+                total_score += 10
+                occupation_matched = True
+                occupation_detail = f"{occupation.replace('_', ' ').title()} specific scheme"
+                reasons.append(f"{occupation.replace('_', ' ').title()} specific benefits")
+            elif not scheme_has_occupation_restriction:
+                # Scheme is general (no occupation restrictions) - open to all
+                total_score += 10
+                occupation_matched = True
+                occupation_detail = "Open to all occupations"
+            else:
+                # Scheme has occupation restrictions but not for this occupation
+                occupation_detail = f"Not specific to {occupation.replace('_', ' ').title()}"
+        else:
+            # User has general occupation or no occupation specified
+            if not scheme_has_occupation_restriction:
+                # General scheme open to all
+                total_score += 10
+                occupation_matched = True
+                occupation_detail = "Open to all occupations"
+            else:
+                # Scheme has occupation restrictions but user is general
+                occupation_matched = True
+                occupation_detail = "May have occupation-specific eligibility"
+        
+        match_factors.append({
+            "factor": "Occupation Match",
+            "matched": occupation_matched,
+            "detail": occupation_detail or "No occupation-specific criteria"
+        })
+        
+        # 4. Special Category Match (10 points)
+        special_matched = False
+        special_detail = ""
+        
+        # Check if scheme has ANY special category restrictions
+        scheme_has_special_restriction = (
+            scheme.get("disability_specific") or 
+            scheme.get("senior_citizen_specific") or
+            scheme.get("women_specific") or
+            "women" in combined_text or 
+            "girl" in combined_text or 
+            "female" in combined_text or 
+            "matri" in combined_text or
+            "disability" in combined_text or 
+            "handicapped" in combined_text or 
+            "pwd" in combined_text or
+            "senior citizen" in combined_text or 
+            "elderly" in combined_text
+        )
+        
+        # Gender-specific schemes
+        if gender and gender in ["female", "women"]:
+            if "women" in combined_text or "girl" in combined_text or "female" in combined_text or "matri" in combined_text:
+                total_score += 10
+                special_matched = True
+                special_detail = "Women-specific scheme"
+                reasons.append("Women-focused benefits")
+            elif not scheme_has_special_restriction:
+                # General scheme - open to all including women
+                total_score += 10
+                special_matched = True
+                special_detail = "Open to all categories"
+        
+        # Disability-specific schemes
+        if is_disabled:
+            if scheme.get("disability_specific") or "disability" in combined_text or "handicapped" in combined_text or "pwd" in combined_text:
+                total_score += 10
+                special_matched = True
+                special_detail = "Disability-friendly scheme"
+                reasons.append("Disability benefits included")
+            elif not scheme_has_special_restriction:
+                # General scheme - open to all including disabled
+                total_score += 10
+                special_matched = True
+                special_detail = "Open to all categories"
+        
+        # Senior citizen specific
+        if is_senior_citizen or age >= 60:
+            if scheme.get("senior_citizen_specific") or "senior citizen" in combined_text or "elderly" in combined_text:
+                total_score += 10
+                special_matched = True
+                special_detail = "Senior citizen scheme"
+                reasons.append("Senior citizen benefits")
+            elif not scheme_has_special_restriction:
+                # General scheme - open to all including seniors
+                total_score += 10
+                special_matched = True
+                special_detail = "Open to all categories"
+        
+        # If user doesn't belong to any special category and scheme is general
+        if not special_matched and not scheme_has_special_restriction:
+            special_matched = True
+            special_detail = "Open to all categories"
+        
+        match_factors.append({
+            "factor": "Special Category",
+            "matched": special_matched,
+            "detail": special_detail or "No special category criteria"
+        })
+        
+        # 5. Category/Condition Match (15 points)
         conditions_matched = False
         conditions_detail = ""
         scheme_conditions = scheme.get("conditions_covered", [])
@@ -344,7 +482,7 @@ class SchemeRAGService:
             matches = sum(1 for sc in scheme_conditions if any(c in sc.lower() for c in conditions_lower))
             if matches > 0:
                 match_ratio = min(matches / len(conditions), 1.0)
-                total_score += int(20 * match_ratio)
+                total_score += int(15 * match_ratio)
                 conditions_matched = True
                 conditions_detail = f"Covers {matches} of your conditions"
                 reasons.append(f"Covers relevant medical conditions")
@@ -362,12 +500,12 @@ class SchemeRAGService:
             # Age-based category matching
             scheme_eligibility = " ".join(scheme.get("eligibility", [])).lower()
             if age >= 60 and ("senior" in scheme_eligibility or "elderly" in scheme_eligibility or "old age" in scheme_eligibility):
-                total_score += 20
+                total_score += 15
                 conditions_matched = True
                 conditions_detail = "Senior citizen benefits"
                 reasons.append("Senior citizen scheme")
             elif age < 18 and ("child" in scheme_eligibility or "student" in scheme_eligibility or "paediatric" in scheme_eligibility):
-                total_score += 20
+                total_score += 15
                 conditions_matched = True
                 conditions_detail = "Child/Student benefits"
                 reasons.append("Children/student scheme")
@@ -389,8 +527,8 @@ class SchemeRAGService:
             "detail": conditions_detail or "General eligibility criteria"
         })
         
-        # 4. Semantic Similarity (10 points)
-        semantic_points = min(10.0, semantic_score * 10)  # Normalize to 0-10
+        # 6. Semantic Similarity (5 points)
+        semantic_points = min(5.0, semantic_score * 5)  # Normalize to 0-5
         total_score += semantic_points
         if semantic_score > 0.5:
             match_factors.append({
@@ -475,12 +613,18 @@ class SchemeRAGService:
         income_range: str = "",
         age: int = 0,
         is_bpl: bool = False,
+        gender: str = "",
+        occupation: str = "",
+        is_disabled: bool = False,
+        is_senior_citizen: bool = False,
         conditions: Optional[List[str]] = None,
         medical_text: str = "",
         top_k: int = 10,
     ) -> List[Dict[str, Any]]:
         """
         Retrieve the most relevant schemes for the user's profile using smart scoring.
+        
+        Enhanced with support for gender, occupation, disability, and senior citizen filters.
 
         Returns a ranked list of scheme dicts with scores, match factors, and explanations.
         """
@@ -495,13 +639,29 @@ class SchemeRAGService:
         if income_range:
             query_parts.append(f"income {income_range}")
         if is_bpl:
-            query_parts.append("BPL below poverty line")
+            query_parts.append("BPL below poverty line ration card")
         if age:
-            if age >= 60:
-                query_parts.append("elderly senior citizen old age geriatric")
+            if age >= 60 or is_senior_citizen:
+                query_parts.append("elderly senior citizen old age pension")
             elif age < 18:
-                query_parts.append("child children paediatric school student")
+                query_parts.append("child children paediatric school student education")
             query_parts.append(f"age {age}")
+        if gender:
+            query_parts.append(f"{gender} women girl boy")
+        if occupation:
+            occupation_keywords = {
+                "farmer": "farmer agriculture kisan krishi",
+                "student": "student education scholarship school college",
+                "senior_citizen": "senior citizen elderly pension old age",
+                "government_employee": "government employee public sector",
+                "private_employee": "private employee corporate",
+                "self_employed": "self employed business entrepreneur",
+                "unemployed": "unemployed job seeker",
+                "homemaker": "homemaker housewife women",
+            }
+            query_parts.append(occupation_keywords.get(occupation, occupation))
+        if is_disabled:
+            query_parts.append("disabled disability handicapped differently abled pwd")
         if conditions:
             query_parts.extend(conditions)
         if medical_text:
@@ -528,6 +688,10 @@ class SchemeRAGService:
                 income_range=income_range,
                 age=age,
                 is_bpl=is_bpl,
+                gender=gender,
+                occupation=occupation,
+                is_disabled=is_disabled,
+                is_senior_citizen=is_senior_citizen,
                 conditions=conditions,
                 semantic_score=semantic_score,
             )
@@ -550,8 +714,8 @@ class SchemeRAGService:
             results.append({
                 **scheme,
                 "relevance_score": item["score"] / 100,  # Normalize to 0-1
-                "match_score": round(item["score"]),
-                "match_percentage": min(100, round(item["score"])),
+                "match_score": int(round(item["score"])),
+                "match_percentage": min(100, int(round(item["score"]))),
                 "match_reason": item["match_reason"],
                 "match_factors": item["match_factors"],
                 "semantic_similarity": round(item["semantic_score"] * 100, 1),
@@ -724,6 +888,7 @@ INSTRUCTIONS:
 5. If the medical report shows conditions (e.g. diabetes, kidney disease), explicitly link to schemes that cover those.
 6. Use simple, clear language suitable for non-expert users.
 7. ALWAYS include the scheme helpline number.
+8. IMPORTANT: Do NOT use markdown formatting like asterisks or bold markers in your response. Use plain text only.
 
 Respond in JSON format:
 {{
@@ -754,9 +919,12 @@ Respond in JSON format:
             # Merge RAG recommendations back into scheme data
             enriched = self._merge_rag_with_schemes(rag_result, retrieved)
 
+            # Clean summary by removing markdown asterisks
+            summary = rag_result.get("summary", "").replace("**", "").replace("*", "")
+            
             return {
                 "schemes": enriched,
-                "summary": rag_result.get("summary", ""),
+                "summary": summary,
                 "count": len(enriched),
                 "rag_used": True,
             }

@@ -1,6 +1,10 @@
 from fastapi import APIRouter, HTTPException, Query
 import logging
 from typing import Optional
+from functools import lru_cache
+import hashlib
+import json
+from datetime import datetime, timedelta
 
 from app.schemas import SchemeMatchRequest, SchemeMatchResponse, SchemeInfo
 from app.services.scheme_rag import scheme_rag_service
@@ -20,22 +24,93 @@ LANG_CODE = {
     "telugu": "te",
 }
 
+# Simple in-memory cache for scheme results (TTL: 5 minutes)
+_scheme_cache: dict = {}
+_cache_ttl = timedelta(minutes=5)
+
+
+def _get_cache_key(request: SchemeMatchRequest) -> str:
+    """Generate a cache key from request parameters."""
+    cache_dict = {
+        "state": request.state.lower(),
+        "income_range": request.income_range,
+        "age": request.age,
+        "is_bpl": request.is_bpl,
+        "gender": request.gender.value,
+        "occupation": request.occupation.value,
+        "is_disabled": request.is_disabled,
+        "disability_percentage": request.disability_percentage,
+        "is_senior_citizen": request.is_senior_citizen,
+        "has_ration_card": request.has_ration_card,
+        "ration_card_type": request.ration_card_type,
+        "is_student": request.is_student,
+        "language": request.language.value,
+    }
+    return hashlib.sha256(json.dumps(cache_dict, sort_keys=True).encode()).hexdigest()
+
+
+def _get_cached_result(cache_key: str) -> Optional[dict]:
+    """Get cached result if not expired."""
+    if cache_key in _scheme_cache:
+        result, timestamp = _scheme_cache[cache_key]
+        if datetime.now() - timestamp < _cache_ttl:
+            logger.info(f"Cache hit for scheme query: {cache_key[:16]}...")
+            return result
+        else:
+            del _scheme_cache[cache_key]
+    return None
+
+
+def _set_cached_result(cache_key: str, result: dict):
+    """Cache result with timestamp."""
+    _scheme_cache[cache_key] = (result, datetime.now())
+    # Clean old entries if cache gets too large
+    if len(_scheme_cache) > 1000:
+        now = datetime.now()
+        expired_keys = [
+            k for k, (_, ts) in _scheme_cache.items()
+            if now - ts > _cache_ttl
+        ]
+        for k in expired_keys:
+            del _scheme_cache[k]
+
 
 @router.post("/match", response_model=SchemeMatchResponse)
 async def match_schemes(request: SchemeMatchRequest):
-    """RAG-powered scheme matching: retrieves relevant schemes then uses
-    Bedrock Claude to generate personalised recommendations."""
+    """RAG-powered scheme matching with enhanced filtering.
+    
+    Retrieves relevant schemes based on user profile including:
+    - State, income, age, BPL status
+    - Gender, occupation, disability status
+    - Senior citizen, student status
+    - Medical conditions from reports
+    """
 
     try:
+        # Check cache first
+        cache_key = _get_cache_key(request)
+        cached_result = _get_cached_result(cache_key)
+        if cached_result:
+            return SchemeMatchResponse(**cached_result)
+
         # Ensure RAG service is initialised
         scheme_rag_service.initialise()
 
-        # Build user profile dict
+        # Build comprehensive user profile
         user_profile = {
             "state": request.state,
             "income_range": request.income_range,
             "age": request.age,
             "is_bpl": request.is_bpl,
+            "gender": request.gender.value,
+            "occupation": request.occupation.value,
+            "is_disabled": request.is_disabled,
+            "disability_percentage": request.disability_percentage,
+            "is_senior_citizen": request.is_senior_citizen,
+            "has_ration_card": request.has_ration_card,
+            "ration_card_type": request.ration_card_type,
+            "is_student": request.is_student,
+            "education_level": request.education_level,
             "conditions": request.conditions or [],
         }
 
@@ -56,7 +131,7 @@ async def match_schemes(request: SchemeMatchRequest):
                 user_profile=user_profile,
                 medical_context=medical_context,
                 language=lang_code,
-                top_k=10,
+                top_k=15,  # Increased for better coverage
             )
         except Exception as bedrock_err:
             logger.warning(f"Bedrock RAG failed, falling back to retrieval-only: {bedrock_err}")
@@ -66,9 +141,13 @@ async def match_schemes(request: SchemeMatchRequest):
                 income_range=request.income_range,
                 age=request.age,
                 is_bpl=request.is_bpl,
+                gender=request.gender.value,
+                occupation=request.occupation.value,
+                is_disabled=request.is_disabled,
+                is_senior_citizen=request.is_senior_citizen,
                 conditions=request.conditions,
                 medical_text=medical_context,
-                top_k=10,
+                top_k=15,
             )
             result = {
                 "schemes": [
@@ -79,6 +158,13 @@ async def match_schemes(request: SchemeMatchRequest):
                 "rag_used": False,
             }
 
+        # Apply additional filtering for gender, occupation, disability
+        schemes = result.get("schemes", [])
+        filtered_schemes = _apply_advanced_filtering(schemes, user_profile)
+        
+        # Re-rank based on comprehensive profile matching
+        ranked_schemes = _rank_schemes_by_profile(filtered_schemes, user_profile)
+
         # De-anonymise the RAG summary if PII mapping exists in the session
         summary = result.get("summary", "")
         if request.session_id:
@@ -88,13 +174,16 @@ async def match_schemes(request: SchemeMatchRequest):
                 summary = mapping.deanonymise(summary)
 
         # Prepare response
-        schemes_data = [SchemeInfo(**s) for s in result.get("schemes", [])]
+        schemes_data = [SchemeInfo(**s) for s in ranked_schemes[:10]]  # Limit to top 10
         response_data = SchemeMatchResponse(
             schemes=schemes_data,
-            count=result.get("count", 0),
+            count=len(schemes_data),
             summary=summary,
             rag_used=result.get("rag_used", False),
         )
+
+        # Cache the result
+        _set_cached_result(cache_key, response_data.model_dump())
 
         # Store scheme results in session for SMS inclusion
         if request.session_id:
@@ -106,9 +195,102 @@ async def match_schemes(request: SchemeMatchRequest):
 
         return response_data
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Scheme matching error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Scheme matching failed: {str(e)}")
+
+
+def _apply_advanced_filtering(schemes: list, user_profile: dict) -> list:
+    """Apply additional filtering based on gender, occupation, disability."""
+    filtered = []
+    
+    for scheme in schemes:
+        # Check gender-specific eligibility
+        gender_eligible = True
+        if "gender" in scheme:
+            scheme_gender = scheme.get("gender", "").lower()
+            if scheme_gender and scheme_gender != user_profile["gender"]:
+                gender_eligible = False
+        
+        # Check occupation-based eligibility
+        occupation_eligible = True
+        scheme_eligibility = scheme.get("eligibility", [])
+        eligibility_text = " ".join(scheme_eligibility).lower()
+        
+        # If scheme mentions farmers and user is not a farmer
+        if "farmer" in eligibility_text and user_profile["occupation"] != "farmer":
+            # Still allow it but may not be priority
+            pass
+            
+        # Check disability-specific schemes
+        disability_eligible = True
+        if scheme.get("disability_specific", False):
+            if not user_profile["is_disabled"]:
+                disability_eligible = False
+            elif user_profile["disability_percentage"] and user_profile["disability_percentage"] < 40:
+                disability_eligible = False
+        
+        # Check senior citizen schemes
+        senior_eligible = True
+        if scheme.get("senior_citizen_specific", False):
+            if not user_profile["is_senior_citizen"]:
+                senior_eligible = False
+        
+        # Check student-specific schemes
+        student_eligible = True
+        if scheme.get("student_specific", False):
+            if not user_profile["is_student"]:
+                student_eligible = False
+        
+        if gender_eligible and disability_eligible and senior_eligible and student_eligible:
+            filtered.append(scheme)
+    
+    return filtered
+
+
+def _rank_schemes_by_profile(schemes: list, user_profile: dict) -> list:
+    """Re-rank schemes based on comprehensive profile matching."""
+    scored_schemes = []
+    
+    for scheme in schemes:
+        score = scheme.get("match_score", 0) or scheme.get("relevance_score", 0) * 100
+        
+        # Boost score based on profile matching
+        eligibility = " ".join(scheme.get("eligibility", [])).lower()
+        
+        # Occupation boost
+        if user_profile["occupation"] == "farmer" and "farmer" in eligibility:
+            score += 15
+        if user_profile["occupation"] == "student" and "student" in eligibility:
+            score += 15
+        if user_profile["occupation"] == "senior_citizen" and "senior" in eligibility:
+            score += 15
+            
+        # Disability boost
+        if user_profile["is_disabled"] and scheme.get("disability_specific"):
+            score += 20
+            
+        # Senior citizen boost
+        if user_profile["is_senior_citizen"] and scheme.get("senior_citizen_specific"):
+            score += 10
+            
+        # Student boost
+        if user_profile["is_student"] and scheme.get("student_specific"):
+            score += 10
+        
+        # BPL boost for BPL-specific schemes
+        if user_profile["is_bpl"] and scheme.get("bpl_required"):
+            score += 15
+        
+        scheme["match_score"] = int(min(score, 100))
+        scheme["match_percentage"] = int(min(score, 100))
+        scored_schemes.append((score, scheme))
+    
+    # Sort by score descending
+    scored_schemes.sort(key=lambda x: x[0], reverse=True)
+    return [s[1] for s in scored_schemes]
 
 
 @router.get("/search")

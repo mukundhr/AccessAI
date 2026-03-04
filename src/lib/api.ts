@@ -122,6 +122,19 @@ export interface FollowUpResponse {
   confidence: string;
 }
 
+export type OccupationCategory =
+  | 'general'
+  | 'farmer'
+  | 'government_employee'
+  | 'private_employee'
+  | 'self_employed'
+  | 'student'
+  | 'homemaker'
+  | 'senior_citizen'
+  | 'unemployed';
+
+export type Gender = 'male' | 'female' | 'other';
+
 export interface SchemeMatchFactor {
   factor: string;
   matched: boolean;
@@ -145,6 +158,12 @@ export interface Scheme {
   documents_required: string[];
   apply_link?: string;
   helpline?: string;
+  eligibility?: string[];
+  benefits?: string[];
+  bpl_required?: boolean;
+  disability_specific?: boolean;
+  senior_citizen_specific?: boolean;
+  student_specific?: boolean;
 }
 
 export interface SchemeMatchResponse {
@@ -152,6 +171,25 @@ export interface SchemeMatchResponse {
   count: number;
   summary?: string;
   rag_used?: boolean;
+}
+
+export interface SchemeMatchRequest {
+  state: string;
+  income_range: string;
+  age: number;
+  is_bpl: boolean;
+  gender: Gender;
+  occupation: OccupationCategory;
+  is_disabled: boolean;
+  disability_percentage?: number;
+  is_senior_citizen?: boolean;
+  has_ration_card: boolean;
+  ration_card_type?: string;
+  is_student: boolean;
+  education_level?: string;
+  conditions?: string[];
+  session_id?: string;
+  language: Language;
 }
 
 export interface DocumentUploadResponse {
@@ -316,24 +354,27 @@ class ApiClient {
   }
 
   async matchSchemes(
-    state: string,
-    incomeRange: string,
-    age: number,
-    isBpl: boolean,
-    conditions: string[] | undefined,
-    sessionId: string | undefined,
-    language: Language
+    request: SchemeMatchRequest
   ): Promise<SchemeMatchResponse> {
     return this.request<SchemeMatchResponse>('/schemes/match', {
       method: 'POST',
       body: JSON.stringify({
-        state,
-        income_range: incomeRange,
-        age,
-        is_bpl: isBpl,
-        conditions,
-        session_id: sessionId,
-        language,
+        state: request.state,
+        income_range: request.income_range,
+        age: request.age,
+        is_bpl: request.is_bpl,
+        gender: request.gender,
+        occupation: request.occupation,
+        is_disabled: request.is_disabled,
+        disability_percentage: request.disability_percentage,
+        is_senior_citizen: request.is_senior_citizen,
+        has_ration_card: request.has_ration_card,
+        ration_card_type: request.ration_card_type,
+        is_student: request.is_student,
+        education_level: request.education_level,
+        conditions: request.conditions,
+        session_id: request.session_id,
+        language: request.language,
       }),
     });
   }
