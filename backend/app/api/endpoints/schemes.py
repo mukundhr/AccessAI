@@ -87,12 +87,24 @@ async def match_schemes(request: SchemeMatchRequest):
                 mapping = PIIMapping.from_dict(session["pii_mapping"])
                 summary = mapping.deanonymise(summary)
 
-        return SchemeMatchResponse(
-            schemes=[SchemeInfo(**s) for s in result.get("schemes", [])],
+        # Prepare response
+        schemes_data = [SchemeInfo(**s) for s in result.get("schemes", [])]
+        response_data = SchemeMatchResponse(
+            schemes=schemes_data,
             count=result.get("count", 0),
             summary=summary,
             rag_used=result.get("rag_used", False),
         )
+
+        # Store scheme results in session for SMS inclusion
+        if request.session_id:
+            sessions_store.update(
+                request.session_id,
+                {"scheme_result": response_data.model_dump()}
+            )
+            logger.info(f"Stored scheme results in session {request.session_id}")
+
+        return response_data
 
     except Exception as e:
         logger.error(f"Scheme matching error: {str(e)}")

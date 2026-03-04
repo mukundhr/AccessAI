@@ -74,53 +74,93 @@ class SMSService:
         abnormals = analysis.get("abnormal_values", [])
         abnormal_count = len(abnormals)
         
+        # Get scheme info if enabled
+        scheme_lines = []
+        logger.info(f"SMS format - include_schemes: {include_schemes}, schemes provided: {schemes is not None}")
+        if include_schemes and schemes:
+            scheme_list = schemes.get("schemes", [])
+            logger.info(f"SMS format - scheme count: {len(scheme_list)}")
+            if scheme_list:
+                if language == "hi":
+                    scheme_lines.append(f"\nYojanayen: {len(scheme_list)} mili")
+                    for i, scheme in enumerate(scheme_list[:2], 1):
+                        scheme_name = scheme.get("name", "")
+                        if scheme_name:
+                            scheme_lines.append(f"{i}. {scheme_name[:25]}")
+                    if len(scheme_list) > 2:
+                        scheme_lines.append(f"...aur {len(scheme_list) - 2} aur")
+                elif language == "kn":
+                    scheme_lines.append(f"\nYojanegalu: {len(scheme_list)} kandubandive")
+                    for i, scheme in enumerate(scheme_list[:2], 1):
+                        scheme_name = scheme.get("name", "")
+                        if scheme_name:
+                            scheme_lines.append(f"{i}. {scheme_name[:25]}")
+                    if len(scheme_list) > 2:
+                        scheme_lines.append(f"...mattu {len(scheme_list) - 2} innu")
+                else:  # English
+                    scheme_lines.append(f"\nSchemes: {len(scheme_list)} found")
+                    for i, scheme in enumerate(scheme_list[:2], 1):
+                        scheme_name = scheme.get("name", "")
+                        if scheme_name:
+                            scheme_lines.append(f"{i}. {scheme_name[:25]}")
+                    if len(scheme_list) > 2:
+                        scheme_lines.append(f"...and {len(scheme_list) - 2} more")
+        
         # Build 3-4 line summary based on language
         if language == "hi":
-            lines = ["AccessAI - आपकी मेडिकल रिपोर्ट सारांश"]
+            lines = ["AccessAI Medical Report"]
             
             if has_emergency:
-                lines.append(f"⚠️ तत्काल ध्यान दें: {emergency.get('alert_count', 0)} महत्वपूर्ण मान")
+                lines.append(f"URGENT: {emergency.get('alert_count', 0)} critical values")
             elif abnormal_count > 0:
-                lines.append(f"⚠️ {abnormal_count} असामान्य मान मिले")
+                lines.append(f"{abnormal_count} abnormal values found")
             else:
-                lines.append("✅ कोई असामान्य मान नहीं मिला")
+                lines.append("No abnormal values found")
             
-            # Key recommendation
-            lines.append("कृपया अपने डॉक्टर से परामर्श करें।")
+            lines.append("Please consult your doctor.")
             
-            # Disclaimer
-            lines.append("Disclaimer: यह AI-जनरेटेड सारांश है। डॉक्टर से सलाह लें।")
-            lines.append("हम आपका फोन नंबर स्टोर नहीं करते।")
+            # Add scheme information if available
+            lines.extend(scheme_lines)
+            
+            lines.append("AI summary. See doctor for diagnosis.")
             
         elif language == "kn":
-            lines = ["AccessAI - ನಿಮ್ಮ ವೈದ್ಯಕೀಯ ವರದಿ ಸಾರಾಂಶ"]
+            lines = ["AccessAI Medical Report"]
             
             if has_emergency:
-                lines.append(f"⚠️ ತುರ್ತು: {emergency.get('alert_count', 0)} ಕ್ರಿಟಿಕಲ್ ಮೌಲ್ಯಗಳು")
+                lines.append(f"URGENT: {emergency.get('alert_count', 0)} critical values")
             elif abnormal_count > 0:
-                lines.append(f"⚠️ {abnormal_count} ಅಸಹಜ ಮೌಲ್ಯಗಳು ಪತ್ತೆಯಾಗಿವೆ")
+                lines.append(f"{abnormal_count} abnormal values found")
             else:
-                lines.append("✅ ಯಾವುದೇ ಅಸಹಜ ಮೌಲ್ಯಗಳು ಪತ್ತೆಯಾಗಿಲ್ಲ")
+                lines.append("No abnormal values found")
             
-            lines.append("ದಯವಿಟ್ಟು ನಿಮ್ಮ ವೈದ್ಯರನ್ನು ಸಂಪರ್ಕಿಸಿ.")
-            lines.append("Disclaimer: ಈ AI-ರಚಿತ ಸಾರಾಂಶ. ವೈದ್ಯರ ಸಲಹೆ ಪಡೆಯಿರಿ.")
-            lines.append("ನಾವು ನಿಮ್ಮ ಫೋನ್ ನಂಬರ್ ಅನ್ನು ಸಂಗ್ರಹಿಸುವುದಿಲ್ಲ.")
+            lines.append("Please consult your doctor.")
+            
+            # Add scheme information if available
+            lines.extend(scheme_lines)
+            
+            lines.append("AI summary. See doctor for diagnosis.")
             
         else:  # English
-            lines = ["AccessAI - Your Medical Report Summary"]
+            lines = ["AccessAI Medical Report"]
             
             if has_emergency:
-                lines.append(f"⚠️ URGENT: {emergency.get('alert_count', 0)} critical values detected")
+                lines.append(f"URGENT: {emergency.get('alert_count', 0)} critical values detected")
             elif abnormal_count > 0:
-                lines.append(f"⚠️ {abnormal_count} abnormal values found")
+                lines.append(f"{abnormal_count} abnormal values found")
             else:
-                lines.append("✅ No abnormal values detected")
+                lines.append("No abnormal values detected")
             
-            lines.append("Please consult your doctor for interpretation.")
-            lines.append("Disclaimer: AI-generated summary. Consult doctor for diagnosis.")
-            lines.append("We do not store your phone number.")
+            lines.append("Please consult your doctor.")
+            
+            # Add scheme information if available
+            lines.extend(scheme_lines)
+            
+            lines.append("AI summary. See doctor for diagnosis.")
 
-        return "\n".join(lines)
+        message = "\n".join(lines)
+        logger.info(f"SMS message length: {len(message)} chars")
+        return message
 
     async def send_summary(
         self,
