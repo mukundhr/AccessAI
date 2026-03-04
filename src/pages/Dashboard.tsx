@@ -48,11 +48,11 @@ const StatCard = ({ icon: Icon, label, value, suffix = "", color = "text-primary
 
 const impactMetrics = [
   { icon: FileText, label: "Reports Analyzed", value: 1247, color: "text-primary" },
-  { icon: Users, label: "Users Helped", value: 893, color: "text-blue-400" },
+  { icon: Users, label: "Users Helped", value: 893, color: "text-white-400" },
   { icon: Volume2, label: "Audio Explanations", value: 2341, color: "text-green-400" },
-  { icon: Landmark, label: "Schemes Matched", value: 3156, color: "text-amber-400" },
+  { icon: Landmark, label: "Schemes Matched", value: 3156, color: "text-orange-400" },
   { icon: Heart, label: "Critical Alerts Raised", value: 47, color: "text-red-400" },
-  { icon: Globe, label: "Languages Used", value: 3, color: "text-purple-400" },
+  { icon: Globe, label: "Languages Used", value: 3, color: "text-white-200" },
 ];
 
 const stateData = [
@@ -166,18 +166,18 @@ const Dashboard = () => {
               </p>
             </GlassCard>
             <GlassCard delay={0.35} className="text-center">
-              <Shield className="w-8 h-8 text-green-400 mx-auto mb-3" />
+              <Shield className="w-8 h-8 text-white-300 mx-auto mb-3" />
               <p className="font-display font-bold text-2xl text-foreground">100%</p>
               <p className="text-sm text-muted-foreground">PII anonymized</p>
-              <p className="text-xs text-green-400 mt-1">
+              <p className="text-xs text-white-300 mt-1">
                 Zero personal data ever reaches the AI model
               </p>
             </GlassCard>
             <GlassCard delay={0.4} className="text-center">
-              <Zap className="w-8 h-8 text-amber-400 mx-auto mb-3" />
+              <Zap className="w-8 h-8 text-orange-400 mx-auto mb-3" />
               <p className="font-display font-bold text-2xl text-foreground">&lt;8s</p>
               <p className="text-sm text-muted-foreground">Average analysis time</p>
-              <p className="text-xs text-amber-400 mt-1">
+              <p className="text-xs text-orange-400 mt-1">
                 From upload to full AI explanation with audio
               </p>
             </GlassCard>

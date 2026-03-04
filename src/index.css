@@ -54,6 +54,51 @@
     --sidebar-accent-foreground: 210 40% 90%;
     --sidebar-border: 220 15% 18%;
     --sidebar-ring: 200 80% 55%;
+
+    /* White color scale */
+    --white: 0 0% 100%;
+    --white-foreground: 220 25% 6%;
+    --white-50: 0 0% 98%;
+    --white-100: 0 0% 96%;
+    --white-200: 0 0% 90%;
+    --white-300: 0 0% 80%;
+    --white-400: 0 0% 70%;
+    --white-500: 0 0% 60%;
+    --white-600: 0 0% 50%;
+    --white-700: 0 0% 40%;
+    --white-800: 0 0% 30%;
+    --white-900: 0 0% 20%;
+    --white-950: 0 0% 10%;
+
+    /* Red color scale */
+    --red: 0 84% 60%;
+    --red-foreground: 0 0% 100%;
+    --red-50: 0 86% 97%;
+    --red-100: 0 93% 94%;
+    --red-200: 0 96% 89%;
+    --red-300: 0 94% 82%;
+    --red-400: 0 91% 71%;
+    --red-500: 0 84% 60%;
+    --red-600: 0 72% 51%;
+    --red-700: 0 74% 42%;
+    --red-800: 0 70% 35%;
+    --red-900: 0 63% 31%;
+    --red-950: 0 60% 20%;
+
+    /* Orange color scale */
+    --orange: 24 95% 53%;
+    --orange-foreground: 0 0% 100%;
+    --orange-50: 33 100% 96%;
+    --orange-100: 34 100% 92%;
+    --orange-200: 32 98% 83%;
+    --orange-300: 30 97% 72%;
+    --orange-400: 27 96% 61%;
+    --orange-500: 24 95% 53%;
+    --orange-600: 20 90% 48%;
+    --orange-700: 17 88% 40%;
+    --orange-800: 15 79% 34%;
+    --orange-900: 15 75% 28%;
+    --orange-950: 13 70% 18%;
   }
 }
 

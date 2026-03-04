@@ -419,7 +419,7 @@ const UploadPage = () => {
 
   const getSeverityBadge = (severity: string) => {
     const colors: Record<string, string> = {
-      mild: "bg-yellow-500/20 text-yellow-300",
+      mild: "bg-white-500/20 text-white-300",
       moderate: "bg-orange-500/20 text-orange-300",
       severe: "bg-red-500/20 text-red-300",
     };
@@ -471,17 +471,17 @@ const UploadPage = () => {
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="glass-card border-yellow-500/30 p-4 flex items-start gap-3"
+                className="glass-card border-orange-500/30 p-4 flex items-start gap-3"
               >
-                <AlertTriangle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+                <AlertTriangle className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm text-yellow-300 font-medium">Low Quality Report Detected</p>
-                  <ul className="text-xs text-yellow-300/70 mt-1 space-y-0.5">
+                  <p className="text-sm text-orange-300 font-medium">Low Quality Report Detected</p>
+                  <ul className="text-xs text-orange-300/70 mt-1 space-y-0.5">
                     {documentStatus.quality.issues.map((issue, i) => (
                       <li key={i}>• {issue}</li>
                     ))}
                   </ul>
-                  <p className="text-xs text-yellow-300/50 mt-1">
+                  <p className="text-xs text-orange-300/50 mt-1">
                     Results may be less accurate. Consider uploading a clearer image.
                   </p>
                 </div>
@@ -815,22 +815,22 @@ const UploadPage = () => {
                 <div className="mb-4 space-y-2">
                   <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
                     <div className="flex items-start gap-2 mb-2">
-                      <Shield className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
-                      <p className="text-xs text-amber-300 font-semibold">
+                      <Shield className="w-4 h-4 text-orange-400 mt-0.5 flex-shrink-0" />
+                      <p className="text-xs text-orange-300 font-semibold">
                         AI-generated interpretation for informational purposes only
                       </p>
                     </div>
                     <ul className="space-y-1 ml-6">
-                      <li className="text-[11px] text-amber-300/80 flex items-start gap-1.5">
-                        <span className="text-amber-400 mt-0.5">•</span>
+                      <li className="text-[11px] text-orange-300/80 flex items-start gap-1.5">
+                        <span className="text-orange-400 mt-0.5">•</span>
                         Based on available report data only
                       </li>
-                      <li className="text-[11px] text-amber-300/80 flex items-start gap-1.5">
-                        <span className="text-amber-400 mt-0.5">•</span>
+                      <li className="text-[11px] text-orange-300/80 flex items-start gap-1.5">
+                        <span className="text-orange-400 mt-0.5">•</span>
                         No definitive diagnoses can be made
                       </li>
-                      <li className="text-[11px] text-amber-300/80 flex items-start gap-1.5">
-                        <span className="text-amber-400 mt-0.5">•</span>
+                      <li className="text-[11px] text-orange-300/80 flex items-start gap-1.5">
+                        <span className="text-orange-400 mt-0.5">•</span>
                         Always consult a qualified healthcare professional
                       </li>
                     </ul>
@@ -968,7 +968,7 @@ const UploadPage = () => {
                                           <CheckCircle2 className="w-2.5 h-2.5" /> Verified
                                         </span>
                                       ) : (
-                                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-yellow-500/20 text-[10px] font-medium text-yellow-400" title="Could not fully verify against source">
+                                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-orange-500/20 text-[10px] font-medium text-orange-400" title="Could not fully verify against source">
                                           <AlertTriangle className="w-2.5 h-2.5" /> Unverified
                                         </span>
                                       )
@@ -1010,9 +1010,9 @@ const UploadPage = () => {
                     className="w-full flex items-center justify-between"
                   >
                     <h3 className="font-display font-bold text-lg text-foreground flex items-center gap-2">
-                      <AlertTriangle className="w-5 h-5 text-yellow-400" />
+                      <AlertTriangle className="w-5 h-5 text-red-400" />
                       {t("results.abnormalValues")}
-                      <span className="text-xs font-normal text-yellow-400/70 ml-1">
+                      <span className="text-xs font-normal text-red-400/70 ml-1">
                         ({analysisResult.abnormal_values.length} flagged)
                       </span>
                     </h3>
@@ -1060,7 +1060,7 @@ const UploadPage = () => {
                     className="w-full flex items-center justify-between"
                   >
                     <h3 className="font-display font-bold text-lg text-foreground flex items-center gap-2">
-                      <Info className="w-5 h-5 text-blue-400" />
+                      <Info className="w-5 h-5 text-white-300" />
                       Things to Note
                     </h3>
                     {showNotes ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
@@ -1332,8 +1332,8 @@ const UploadPage = () => {
                   </div>
                   
                   {analysisResult.abnormal_values.length > 0 && (
-                    <div className="mt-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                      <p className="text-xs text-amber-300">
+                    <div className="mt-4 p-3 rounded-lg bg-orange-500/10 border border-orange-500/20">
+                      <p className="text-xs text-orange-300">
                         <span className="font-semibold">Inference logic:</span>{' '}
                         {analysisResult.abnormal_values.length} abnormal value{analysisResult.abnormal_values.length !== 1 ? 's' : ''} flagged based on reference range comparison. 
                         {analysisResult.abnormal_values.some(av => av.severity === 'severe') && 
@@ -1785,7 +1785,7 @@ const UploadPage = () => {
                       }}
                       className={`p-3 rounded-xl text-sm font-medium transition-all flex items-center justify-between ${
                         schemeHasRationCard
-                          ? "bg-amber-500/15 text-amber-400 border border-amber-500/30"
+                          ? "bg-orange-500/15 text-orange-400 border border-orange-500/30"
                           : "glass-card text-muted-foreground hover:bg-secondary/80"
                       }`}
                     >
@@ -1975,8 +1975,8 @@ const UploadPage = () => {
                             {/* Smart Match Score */}
                             {scheme.match_percentage > 0 && (
                               <div className="flex flex-col items-end gap-1">
-                                <div className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg bg-amber-500/10 text-amber-400 shrink-0">
-                                  <Star className="w-3 h-3 fill-amber-400" />
+                                <div className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg bg-orange-500/10 text-orange-400 shrink-0">
+                                  <Star className="w-3 h-3 fill-orange-400" />
                                   {scheme.match_percentage}% Match
                                 </div>
                                 {scheme.semantic_similarity > 0 && (
@@ -2297,12 +2297,12 @@ const UploadPage = () => {
               </p>
             </div>
             
-            <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-              <h4 className="text-sm font-medium text-amber-300 mb-1 flex items-center gap-2">
+            <div className="p-3 rounded-lg bg-orange-500/10 border border-orange-500/20">
+              <h4 className="text-sm font-medium text-orange-300 mb-1 flex items-center gap-2">
                 <Info className="w-4 h-4" />
                 No Data Selling
               </h4>
-              <p className="text-xs text-amber-200/80">
+              <p className="text-xs text-orange-200/80">
                 We never sell, share, or use your medical data for any purpose other than generating 
                 your report analysis. Your data is yours alone.
               </p>

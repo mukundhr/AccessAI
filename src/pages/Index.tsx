@@ -12,18 +12,18 @@ import VoicePulse from "@/components/VoicePulse";
 import { useI18n } from "@/lib/i18n";
 
 const featureKeys = [
-  { icon: FileUp, titleKey: "features.upload.title", descKey: "features.upload.desc" },
-  { icon: Brain, titleKey: "features.ai.title", descKey: "features.ai.desc" },
-  { icon: MessageSquareText, titleKey: "features.questions.title", descKey: "features.questions.desc" },
-  { icon: Volume2, titleKey: "features.audio.title", descKey: "features.audio.desc" },
-  { icon: Landmark, titleKey: "features.schemes.title", descKey: "features.schemes.desc" },
-  { icon: Wifi, titleKey: "features.bandwidth.title", descKey: "features.bandwidth.desc" },
+  { icon: FileUp, titleKey: "features.upload.title", descKey: "features.upload.desc", color: "text-white-300" },
+  { icon: Brain, titleKey: "features.ai.title", descKey: "features.ai.desc", color: "text-orange-400" },
+  { icon: MessageSquareText, titleKey: "features.questions.title", descKey: "features.questions.desc", color: "text-white-200" },
+  { icon: Volume2, titleKey: "features.audio.title", descKey: "features.audio.desc", color: "text-green-400" },
+  { icon: Landmark, titleKey: "features.schemes.title", descKey: "features.schemes.desc", color: "text-orange-300" },
+  { icon: Wifi, titleKey: "features.bandwidth.title", descKey: "features.bandwidth.desc", color: "text-white-400" },
 ];
 
 const whyKeys = [
-  { icon: ShieldCheck, titleKey: "why.reduces.title", descKey: "why.reduces.desc" },
-  { icon: Languages, titleKey: "why.language.title", descKey: "why.language.desc" },
-  { icon: Zap, titleKey: "why.speed.title", descKey: "why.speed.desc" },
+  { icon: ShieldCheck, titleKey: "why.reduces.title", descKey: "why.reduces.desc", color: "text-green-400" },
+  { icon: Languages, titleKey: "why.language.title", descKey: "why.language.desc", color: "text-white-300" },
+  { icon: Zap, titleKey: "why.speed.title", descKey: "why.speed.desc", color: "text-orange-400" },
 ];
 
 const stagger = { hidden: {}, visible: { transition: { staggerChildren: 0.1 } } };
@@ -106,7 +106,7 @@ const Index = () => {
               <motion.div key={f.titleKey} variants={fadeUp}>
                 <GlassCard hover delay={0} className="h-full">
                   <div className="w-11 h-11 rounded-xl gradient-bg-subtle flex items-center justify-center mb-4">
-                    <f.icon className="w-5 h-5 text-primary" />
+                    <f.icon className={`w-5 h-5 ${f.color}`} />
                   </div>
                   <h3 className="font-display font-semibold text-lg mb-2 text-foreground">{t(f.titleKey)}</h3>
                   <p className="text-sm text-muted-foreground leading-relaxed">{t(f.descKey)}</p>
@@ -133,7 +133,7 @@ const Index = () => {
             {whyKeys.map((item, i) => (
               <GlassCard key={item.titleKey} delay={i * 0.15} className="text-center">
                 <div className="w-14 h-14 rounded-2xl gradient-bg-subtle flex items-center justify-center mx-auto mb-5">
-                  <item.icon className="w-7 h-7 text-primary" />
+                  <item.icon className={`w-7 h-7 ${item.color}`} />
                 </div>
                 <h3 className="font-display font-semibold text-lg mb-3 text-foreground">{t(item.titleKey)}</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">{t(item.descKey)}</p>
