@@ -441,7 +441,7 @@ const UploadPage = () => {
       <Navbar />
 
       <main className="pt-20 pb-24 px-4">
-        <div className="container mx-auto max-w-3xl space-y-5">
+        <div className="container mx-auto max-w-7xl space-y-5">
 
           {/* ===== Error Banner ===== */}
           <AnimatePresence>
@@ -601,8 +601,144 @@ const UploadPage = () => {
 
           {/* ===== Results ===== */}
           {step === "results" && (
-            <>
-              {/* ===== EMERGENCY ALERT BANNER ===== */}
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
+              {/* Left sidebar - sticky on desktop */}
+              <div className="xl:col-span-3 xl:order-1 space-y-5">
+                {/* Quick Actions Card - Sticky */}
+                <div className="xl:sticky xl:top-24 space-y-5">
+                  {analysisResult && (
+                    <GlassCard delay={0.05} className="bg-gradient-to-br from-primary/5 to-accent/5">
+                      <h3 className="font-display font-bold text-lg mb-4 text-foreground flex items-center gap-2">
+                        <Volume2 className="w-5 h-5 text-primary" />
+                        Quick Actions
+                      </h3>
+                      
+                      {/* Listen Button */}
+                      <button
+                        onClick={() => loadAndPlayAudio(selectedLanguage === "en" ? "hi" : selectedLanguage)}
+                        disabled={!analysisResult}
+                        className="w-full btn-primary-gradient flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold disabled:opacity-50 mb-3"
+                      >
+                        <Volume2 className="w-4 h-4" />
+                        {isPlaying ? "Playing..." : "Listen / Explain"}
+                      </button>
+
+                      {/* Language Selector */}
+                      <div className="space-y-2">
+                        <p className="text-xs text-muted-foreground">Audio Language:</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {LANGUAGES.filter(l => l.code === "hi" || l.code === "en").map((lang) => (
+                            <button
+                              key={lang.code}
+                              onClick={() => setAudioLanguage(lang.code)}
+                              className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                                audioLanguage === lang.code
+                                  ? "gradient-bg text-primary-foreground"
+                                  : "glass-card text-muted-foreground hover:text-foreground"
+                              }`}
+                            >
+                              {lang.native}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* SMS Section */}
+                      <div className="pt-4 border-t border-border/50 mt-4">
+                        <p className="text-xs text-muted-foreground mb-2">Send to phone:</p>
+                        <div className="flex gap-2">
+                          <input
+                            type="tel"
+                            value={smsPhone}
+                            onChange={(e) => setSmsPhone(e.target.value)}
+                            placeholder="+91..."
+                            className="flex-1 glass-card bg-secondary px-3 py-2 rounded-lg text-sm text-foreground border-none outline-none focus:ring-2 focus:ring-primary/30"
+                          />
+                          <button
+                            onClick={async () => {
+                              const phoneRegex = /^(\+91|91)?[6-9]\d{9}$/;
+                              if (!uploadResponse || !phoneRegex.test(smsPhone)) {
+                                setError("Please enter a valid Indian mobile number (10 digits starting with 6-9).");
+                                return;
+                              }
+                              setSmsLoading(true);
+                              try {
+                                const res = await apiClient.sendSMSSummary(
+                                  uploadResponse.session_id,
+                                  smsPhone,
+                                  smsIncludeSchemes,
+                                  selectedLanguage,
+                                );
+                                if (res.success) {
+                                  setSmsSent(true);
+                                  setSmsPhone("");
+                                } else {
+                                  setError(res.message || "SMS failed.");
+                                }
+                              } catch (err: any) {
+                                setError(err.message || "Failed to send SMS.");
+                              } finally {
+                                setSmsLoading(false);
+                              }
+                            }}
+                            disabled={smsLoading || smsPhone.length < 10}
+                            className="glass-card p-2 text-primary hover:text-primary/80 transition-colors disabled:opacity-50"
+                            title="Send SMS"
+                          >
+                            {smsLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                          </button>
+                        </div>
+                        {smsSent && (
+                          <p className="text-xs text-green-400 mt-2 flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" /> SMS sent!
+                          </p>
+                        )}
+                      </div>
+                    </GlassCard>
+                  )}
+
+                  {/* Overall Confidence - Compact */}
+                  {analysisResult && (
+                    <GlassCard delay={0.1}>
+                      <div className="text-center">
+                        <p className="text-xs text-muted-foreground mb-2">AI Confidence</p>
+                        <div className="relative w-20 h-20 mx-auto mb-2">
+                          <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+                            <path
+                              className="text-muted"
+                              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="3"
+                            />
+                            <motion.path
+                              className={analysisResult.confidence < 60 ? "text-red-500" : analysisResult.confidence < 80 ? "text-yellow-500" : "text-accent"}
+                              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="3"
+                              strokeDasharray={`${analysisResult.confidence}, 100`}
+                              initial={{ strokeDasharray: "0, 100" }}
+                              animate={{ strokeDasharray: `${analysisResult.confidence}, 100` }}
+                              transition={{ duration: 1, delay: 0.5 }}
+                            />
+                          </svg>
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <span className="text-lg font-bold text-foreground">{analysisResult.confidence}%</span>
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">
+                          Processed in {(analysisResult.processing_time_ms / 1000).toFixed(1)}s
+                        </p>
+                      </div>
+                    </GlassCard>
+                  )}
+                </div>
+              </div>
+
+              {/* Main Content */}
+              <div className="xl:col-span-9 xl:order-2 space-y-5">
+                {/* ===== EMERGENCY ALERT BANNER ===== */}
               {analysisResult?.emergency?.has_emergency && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
@@ -2109,7 +2245,8 @@ const UploadPage = () => {
                   )}
                 </AnimatePresence>
               </GlassCard>
-            </>
+              </div>
+            </div>
           )}
         </div>
       </main>
