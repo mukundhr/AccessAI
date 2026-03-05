@@ -172,27 +172,6 @@ const Privacy = () => {
         </div>
       </section>
 
-      {/* Contact */}
-      <section className="py-16 px-4">
-        <div className="container mx-auto text-center max-w-2xl">
-          <GlassCard className="p-8">
-            <h2 className="font-display text-xl font-semibold mb-4">
-              {t("privacy.contact.title")}
-            </h2>
-            <p className="text-muted-foreground mb-6">
-              {t("privacy.contact.content")}
-            </p>
-            <a
-              href="mailto:privacy@accessai.health"
-              className="btn-primary-gradient inline-flex items-center gap-2 px-6 py-3 font-semibold"
-            >
-              <Mail className="w-4 h-4" />
-              privacy@accessai.health
-            </a>
-          </GlassCard>
-        </div>
-      </section>
-
       <Footer />
     </div>
   );

@@ -215,10 +215,11 @@ class SMSService:
             # Note: MessageId only means SNS accepted the message.
             # Actual delivery depends on carrier regulations (DLT registration in India).
 
-            # Privacy: Clear sensitive data from memory
-            formatted_number = None
-            message = None
-            phone_number = None
+            # Privacy: Aggressively clear sensitive data from memory
+            del formatted_number
+            del message
+            del phone_number
+            logger.info("Phone number deleted from memory after SMS dispatch.")
 
             # Note: success=True only means SNS accepted the message.
             # Actual delivery to handset depends on carrier/DLT compliance.
@@ -232,6 +233,9 @@ class SMSService:
             # Privacy: Don't include phone number in error logs
             error_msg = str(e)
             logger.error(f"SMS send failed: {type(e).__name__}: {error_msg}")
+            # Privacy: Clear phone number even on failure
+            del formatted_number
+            del phone_number
             
             # Provide user-friendly error messages for common AWS SNS issues
             if " opted out" in error_msg.lower():

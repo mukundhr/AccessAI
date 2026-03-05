@@ -51,3 +51,10 @@ async def send_summary_sms(request: SMSRequest):
     except Exception as e:
         logger.error(f"SMS endpoint error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to send SMS: {str(e)}")
+    finally:
+        # Privacy: Purge phone number from request object after SMS attempt
+        try:
+            object.__setattr__(request, 'phone_number', None)
+        except Exception:
+            pass
+        logger.info("Phone number purged from request after SMS operation.")

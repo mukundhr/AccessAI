@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { AlertTriangle, Stethoscope, Clock, FileText, CheckCircle } from "lucide-react";
+import { AlertTriangle, Stethoscope, Clock, FileText, CheckCircle, Phone, ShieldCheck } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import GlassCard from "@/components/GlassCard";
@@ -132,6 +132,46 @@ const Disclaimer = () => {
                   </li>
                 ))}
               </ul>
+            </GlassCard>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* SMS & Phone Number Policy */}
+      <section className="py-16 px-4">
+        <div className="container mx-auto max-w-4xl">
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+          >
+            <GlassCard className="p-6 sm:p-8 border-l-4 border-l-emerald-500">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                  <Phone className="w-6 h-6 text-emerald-400" />
+                </div>
+                <div>
+                  <h2 className="font-display text-xl font-semibold mb-3">
+                    {t("disclaimer.sms.title")}
+                  </h2>
+                  <p className="text-muted-foreground leading-relaxed mb-4">
+                    {t("disclaimer.sms.content")}
+                  </p>
+                  <ul className="space-y-3">
+                    {[
+                      "disclaimer.sms.list1",
+                      "disclaimer.sms.list2",
+                      "disclaimer.sms.list3",
+                      "disclaimer.sms.list4",
+                    ].map((key, i) => (
+                      <li key={i} className="flex items-start gap-3">
+                        <ShieldCheck className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                        <span className="text-muted-foreground">{t(key)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
             </GlassCard>
           </motion.div>
         </div>
