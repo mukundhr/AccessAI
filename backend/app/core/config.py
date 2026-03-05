@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     ]
     
     # AWS Configuration
-    AWS_REGION: str = "us-east-1"
+    AWS_REGION: str = "ap-south-1"
     AWS_ACCESS_KEY_ID: str = ""  # Set via environment
     AWS_SECRET_ACCESS_KEY: str = ""  # Set via environment
     
