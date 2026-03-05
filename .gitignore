@@ -1,6 +1,10 @@
 # Node modules
 node_modules/
 
+# frontend
+frontend/node_modules
+frontend/dist
+
 # Logs
 logs
 *.log
