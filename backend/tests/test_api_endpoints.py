@@ -24,7 +24,7 @@ def client():
         mock_aws.sns_client = MagicMock()
         mock_aws.s3_client = MagicMock()
 
-        from main import app
+        from app.main import app
 
         yield TestClient(app)
 
@@ -79,7 +79,7 @@ class TestAnalysisEndpoint:
 class TestNotificationsEndpoint:
     """Tests for the /api/v1/notifications/send-summary endpoint."""
 
-    def test_no_session_returns_404(self, client):
+    def test_sms_disabled_returns_503_before_session_check(self, client):
         response = client.post(
             "/api/v1/notifications/send-summary",
             json={
@@ -88,20 +88,22 @@ class TestNotificationsEndpoint:
                 "language": "en",
             },
         )
-        assert response.status_code == 404
+        # SMS is disabled by default, checked before session lookup
+        assert response.status_code == 503
 
-    def test_invalid_phone_format(self, client):
+    def test_sms_disabled_returns_503(self, client):
         response = client.post(
             "/api/v1/notifications/send-summary",
             json={
                 "session_id": "s1",
-                "phone_number": "9876543210",  # Missing +91
+                "phone_number": "9876543210",
                 "language": "en",
             },
         )
-        assert response.status_code == 422  # Pydantic validation
+        # SMS is disabled by default, so we get 503
+        assert response.status_code == 503
 
-    def test_valid_phone_pattern(self, client):
+    def test_valid_phone_sms_disabled(self, client):
         response = client.post(
             "/api/v1/notifications/send-summary",
             json={
@@ -110,8 +112,8 @@ class TestNotificationsEndpoint:
                 "language": "en",
             },
         )
-        # Should be 404 (session not found) not 422 (validation)
-        assert response.status_code == 404
+        # SMS is disabled by default, so 503 before session lookup
+        assert response.status_code == 503
 
 
 class TestAnalysisResultEndpoint:

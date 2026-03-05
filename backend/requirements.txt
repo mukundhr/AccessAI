@@ -1,0 +1,30 @@
+# FastAPI and ASGI server
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
+
+# AWS SDK
+boto3==1.35.0
+botocore==1.35.0
+
+# Pydantic for data validation
+pydantic==2.9.0
+pydantic-settings==2.5.0
+
+# File uploads (multipart form support)
+python-multipart==0.0.12
+
+# Environment variables
+python-dotenv==1.0.1
+
+# Image processing (OCR preprocessing)
+Pillow==10.4.0
+numpy==1.26.4
+scipy==1.14.0
+
+# OCR fallback (Tesseract)
+pytesseract==0.3.10
+
+# Development & Testing
+pytest==8.3.3
+pytest-asyncio==0.24.0
+httpx==0.27.2
