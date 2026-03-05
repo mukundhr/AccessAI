@@ -15,6 +15,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+allow_origins=[
+    "https://main.d3n5gtr6kg7hsl.amplifyapp.com"
+]
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting AccessAI Backend...")
