@@ -39,42 +39,12 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Configure CORS - explicit origins for security
-CORS_ORIGINS = [
-    "http://localhost:8080",
-    "http://127.0.0.1:8080",
-    "http://192.168.1.8:8080",
-    "http://localhost:5173",
-    "http://localhost:3000",
-    "http://127.0.0.1:5173",
-    "http://127.0.0.1:3000",
-    "http://localhost:8000",
-    "http://127.0.0.1:8000",
-    # Allow any localhost port for development
-    "http://localhost",
-    "http://127.0.0.1",
-    # Cloudflare Tunnel
-    "https://weight-sublime-simulations-same.trycloudflare.com",
-    # Amplify (if still needed)
-    "https://main.d3n5gtr6kg7hsl.amplifyapp.com",
-]
-
-# In development, allow all origins
-if config.settings.ENVIRONMENT == "development":
-    CORS_ORIGINS = ["*"]
-
-# Add any additional origins from environment
-if config.settings.CORS_ORIGINS:
-    CORS_ORIGINS.extend(config.settings.CORS_ORIGINS)
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=CORS_ORIGINS,
+    allow_origins=["https://main.d3n5gtr6kg7hsl.amplifyapp.com"],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"],
-    max_age=600,  # Cache preflight for 10 minutes
 )
 
 
