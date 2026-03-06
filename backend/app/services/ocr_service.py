@@ -8,6 +8,14 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
+# Try importing PyMuPDF for PDF-to-image conversion
+try:
+    import fitz  # PyMuPDF
+    PYMUPDF_AVAILABLE = True
+except ImportError:
+    PYMUPDF_AVAILABLE = False
+    logger.warning("PyMuPDF not installed — PDF page-by-page extraction disabled")
+
 # Try importing tesseract
 try:
     import pytesseract
@@ -226,19 +234,115 @@ class OCRService:
         self.quality_detector = QualityDetector()
         self.tesseract = TesseractOCR() if TESSERACT_AVAILABLE else None
 
+    def _convert_pdf_to_images(self, pdf_bytes: bytes) -> List[Image.Image]:
+        """Convert each page of a PDF to a PIL Image using PyMuPDF."""
+        images = []
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        try:
+            for page_num in range(len(doc)):
+                page = doc.load_page(page_num)
+                # Render at 300 DPI for good OCR quality
+                mat = fitz.Matrix(300 / 72, 300 / 72)
+                pix = page.get_pixmap(matrix=mat)
+                img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                images.append(img)
+        finally:
+            doc.close()
+        return images
+
+    async def _extract_pdf_pages_sync(
+        self, textract_client, file_content: bytes,
+    ) -> Dict[str, Any]:
+        """Convert PDF to images and process each page via synchronous AnalyzeDocument.
+
+        This avoids the async StartDocumentAnalysis API which requires Textract
+        to independently access S3 (and can fail with InvalidS3ObjectException
+        if the bucket policy or region doesn't allow it).
+        """
+        pages = self._convert_pdf_to_images(file_content)
+        logger.info(f"PDF converted to {len(pages)} page image(s) for sync Textract")
+
+        all_text_blocks: List[Dict[str, Any]] = []
+        all_tables: List[Any] = []
+        all_kv_pairs: List[Dict[str, str]] = []
+
+        for page_num, page_img in enumerate(pages, start=1):
+            # Preprocess each page image
+            page_img = self.preprocessor.enhance_contrast(page_img)
+            page_img = self.preprocessor.enhance_sharpness(page_img)
+
+            buf = io.BytesIO()
+            page_img.save(buf, format="PNG")
+            page_bytes = buf.getvalue()
+
+            response = await asyncio.to_thread(
+                textract_client.analyze_document,
+                Document={"Bytes": page_bytes},
+                FeatureTypes=["TABLES", "FORMS"],
+            )
+
+            blocks = response.get("Blocks", [])
+            block_map = {b["Id"]: b for b in blocks}
+
+            for block in blocks:
+                if block["BlockType"] == "LINE":
+                    all_text_blocks.append({
+                        "text": block.get("Text", ""),
+                        "confidence": block.get("Confidence", 0),
+                        "page": page_num,
+                    })
+                elif block["BlockType"] == "TABLE":
+                    table = self._extract_table(block, block_map)
+                    if table:
+                        all_tables.append(table)
+                elif block["BlockType"] == "KEY_VALUE_SET":
+                    if "KEY" in block.get("EntityTypes", []):
+                        kv = self._extract_key_value(block, block_map)
+                        if kv:
+                            all_kv_pairs.append(kv)
+
+        avg_confidence = (
+            sum(b["confidence"] for b in all_text_blocks) / len(all_text_blocks)
+            if all_text_blocks else 0
+        )
+        full_text = "\n".join(b["text"] for b in all_text_blocks)
+
+        logger.info(
+            f"Textract sync (PDF→images): {len(all_text_blocks)} lines, "
+            f"{len(pages)} pages, {len(all_tables)} tables, "
+            f"{len(all_kv_pairs)} KV pairs, {avg_confidence:.1f}% confidence"
+        )
+
+        return {
+            "text": full_text,
+            "blocks": all_text_blocks,
+            "confidence": avg_confidence,
+            "blocks_count": len(all_text_blocks),
+            "tables": all_tables,
+            "key_value_pairs": all_kv_pairs,
+            "pages": len(pages),
+            "engine": "textract-sync-pdf",
+        }
+
     async def extract_with_textract(
         self, textract_client, file_content: bytes, file_name: str,
         s3_info: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
         """Primary extraction using Amazon Textract.
 
-        For multi-page PDFs (or any PDF when s3_info is provided), uses the
-        async StartDocumentAnalysis API which reads from S3.  For images and
-        single-page docs, uses the synchronous AnalyzeDocument with bytes.
+        For PDFs: converts pages to images via PyMuPDF and uses the
+        synchronous AnalyzeDocument API (avoids S3 access issues).
+        Falls back to async StartDocumentAnalysis only if PyMuPDF is
+        unavailable.  For images, uses synchronous AnalyzeDocument
+        with bytes directly.
         """
         is_pdf = file_name.lower().endswith(".pdf")
 
-        # Multi-page PDF path: use async Textract via S3
+        # PDF path: convert to images and process synchronously (preferred)
+        if is_pdf and PYMUPDF_AVAILABLE:
+            return await self._extract_pdf_pages_sync(textract_client, file_content)
+
+        # Fallback for PDFs without PyMuPDF: async Textract via S3
         if is_pdf and s3_info:
             return await self._extract_with_textract_async(
                 textract_client, s3_info
