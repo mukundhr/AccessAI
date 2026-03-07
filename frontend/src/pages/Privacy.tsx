@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Shield, Lock, Eye, Database, Trash2, Mail } from "lucide-react";
+import { Shield, Lock, Eye, Database, Trash2, Mail, Server, Cpu } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import GlassCard from "@/components/GlassCard";
@@ -37,6 +37,16 @@ const Privacy = () => {
       icon: Mail,
       titleKey: "privacy.section6.title",
       contentKey: "privacy.section6.content",
+    },
+    {
+      icon: Server,
+      titleKey: "privacy.section7.title",
+      contentKey: "privacy.section7.content",
+    },
+    {
+      icon: Cpu,
+      titleKey: "privacy.section8.title",
+      contentKey: "privacy.section8.content",
     },
   ];
 
@@ -159,12 +169,7 @@ const Privacy = () => {
               <p className="text-muted-foreground leading-relaxed mb-4">
                 {t("privacy.compliance.content1")}
               </p>
-              <ul className="list-disc list-inside text-muted-foreground space-y-2 ml-2">
-                <li>{t("privacy.compliance.list1")}</li>
-                <li>{t("privacy.compliance.list2")}</li>
-                <li>{t("privacy.compliance.list3")}</li>
-              </ul>
-              <p className="text-muted-foreground leading-relaxed mt-4">
+              <p className="text-muted-foreground leading-relaxed">
                 {t("privacy.compliance.content2")}
               </p>
             </GlassCard>
